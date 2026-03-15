@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Memory - याद रखो</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="voice-memory.css">
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-container" id="vm-app">
+
+    <!-- HEADER -->
+    <header class="glass-panel">
+      <div class="logo">
+        <i class="fa-solid fa-brain"></i>
+        <span>Voice Memory</span>
+      </div>
+      <div class="actions">
+        <button id="btn-settings" class="btn icon-btn" aria-label="Settings" title="Settings">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+        <a href="index.html" class="btn icon-btn" aria-label="Printer App" title="Back to Printer">
+          <i class="fa-solid fa-print"></i>
+        </a>
+      </div>
+    </header>
+
+    <!-- MAIN VOICE ZONE -->
+    <main id="vm-main">
+
+      <!-- Status Bar -->
+      <div id="status-bar" class="status-bar idle">
+        <span class="status-dot"></span>
+        <span id="status-text">माइक दबाओ और बोलो</span>
+      </div>
+
+      <!-- Live Transcript -->
+      <div id="transcript-area" class="transcript-area glass-panel" hidden>
+        <p id="transcript-text"></p>
+      </div>
+
+      <!-- Mic Button -->
+      <div class="mic-zone">
+        <div class="mic-ring-outer">
+          <div class="mic-ring-inner">
+            <button id="btn-mic" class="mic-btn" aria-label="Start listening">
+              <i class="fa-solid fa-microphone"></i>
+            </button>
+          </div>
+        </div>
+        <span id="lang-label" class="lang-label">hi-IN</span>
+      </div>
+
+      <!-- Text Fallback (for non-Chrome browsers) -->
+      <div id="text-fallback" class="text-fallback" hidden>
+        <input type="text" id="text-input" placeholder="यहाँ टाइप करें...">
+        <button id="btn-send-text" class="btn primary-btn">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+
+      <!-- API Key Warning -->
+      <div id="api-key-warning" class="api-warning" hidden>
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>API Key चाहिए। <button id="btn-open-settings-warn" class="link-btn">Settings खोलो</button></span>
+      </div>
+
+    </main>
+
+    <!-- MEMORY PANEL -->
+    <section id="memory-panel" class="memory-panel glass-panel">
+      <div class="panel-header">
+        <h3><i class="fa-solid fa-brain"></i> <span id="memory-count">यादें (0)</span></h3>
+        <div class="panel-actions">
+          <button id="sort-toggle" class="btn icon-btn" title="Sort order">
+            <i class="fa-solid fa-arrow-down-wide-short"></i>
+          </button>
+          <button id="btn-clear-all" class="btn icon-btn danger-btn" title="सब हटाओ">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      <div id="memory-list">
+        <div id="memory-empty-state" class="empty-state">
+          <i class="fa-regular fa-comment-dots"></i>
+          <p>अभी कोई याद नहीं।<br><small>कुछ बोलो और याद करवाओ!</small></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS DRAWER -->
+    <div id="settings-backdrop" class="backdrop"></div>
+    <aside id="settings-panel" class="settings-drawer glass-panel">
+      <div class="drawer-handle"></div>
+      <h3><i class="fa-solid fa-gear"></i> Settings</h3>
+
+      <div class="setting-group">
+        <label for="api-key-input">Anthropic API Key</label>
+        <div class="key-input-wrap">
+          <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+          <button id="btn-toggle-key" type="button" class="btn icon-btn">
+            <i class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+        <small class="hint">
+          <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> पर जाकर key लो
+        </small>
+      </div>
+
+      <div class="setting-group">
+        <label for="recognition-lang">बोलने की भाषा</label>
+        <select id="recognition-lang" class="select-input">
+          <option value="hi-IN">हिंदी (India)</option>
+          <option value="en-IN">English (India)</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <label for="voice-rate">बोलने की रफ्तार: <span id="rate-val">1.0</span>x</label>
+        <input type="range" id="voice-rate" min="0.5" max="2" step="0.1" value="1">
+      </div>
+
+      <div class="setting-group">
+        <label for="voice-pitch">आवाज़ का उतार-चढ़ाव: <span id="pitch-val">1.0</span></label>
+        <input type="range" id="voice-pitch" min="0.5" max="2" step="0.1" value="1">
+      </div>
+
+      <button id="btn-save-settings" class="btn action-btn">
+        <i class="fa-solid fa-floppy-disk"></i> Save करो
+      </button>
+      <div id="settings-feedback" class="settings-feedback" hidden></div>
+    </aside>
+
+  </div>
+
+  <script src="voice-memory.js"></script>
+</body>
+</html>

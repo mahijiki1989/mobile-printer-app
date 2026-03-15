@@ -5,7 +5,10 @@ self.addEventListener('install', (e) => {
       '/mobile-printer-app/',
       '/mobile-printer-app/index.html',
       '/mobile-printer-app/styles.css',
-      '/mobile-printer-app/app.js'
+      '/mobile-printer-app/app.js',
+      '/mobile-printer-app/voice-memory.html',
+      '/mobile-printer-app/voice-memory.js',
+      '/mobile-printer-app/voice-memory.css'
     ]))
   );
 });
