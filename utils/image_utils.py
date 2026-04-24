@@ -3,7 +3,10 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+# Roboto first (matches NoteCam's Android font), then fallbacks
 FONT_PATHS = [
+    '/usr/share/fonts/truetype/roboto/Roboto-Regular.ttf',
+    '/usr/share/fonts/truetype/roboto/hinted/Roboto-Regular.ttf',
     '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
     '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
     '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
@@ -20,12 +23,154 @@ FIELD_ORDER = [
 
 
 def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load a TrueType font at the given pixel size, with fallbacks."""
     for path in FONT_PATHS:
         if os.path.exists(path):
             return ImageFont.truetype(path, size)
     return ImageFont.load_default()
 
+
+# ── OCR line grouping ─────────────────────────────────────────────────────────
+
+def _bbox_of_group(group: list[dict]) -> tuple[int, int, int, int]:
+    """Union bounding box of all detections in a line group."""
+    all_x = [pt[0] for r in group for pt in r['bbox']]
+    all_y = [pt[1] for r in group for pt in r['bbox']]
+    return int(min(all_x)), int(min(all_y)), int(max(all_x)), int(max(all_y))
+
+
+def group_ocr_into_lines(ocr_results: list[dict]) -> list[list[dict]]:
+    """
+    Cluster OCR detections into text lines by y-proximity.
+
+    EasyOCR sometimes splits a single visual line into multiple tokens
+    (e.g. "Latitude:" and "24.032752" as separate results). This groups
+    tokens that are vertically close into a single logical line.
+    """
+    if not ocr_results:
+        return []
+
+    # Estimate typical glyph height to set a dynamic y-tolerance
+    glyph_heights = [
+        max(pt[1] for pt in r['bbox']) - min(pt[1] for pt in r['bbox'])
+        for r in ocr_results
+    ]
+    median_h = float(np.median(glyph_heights)) if glyph_heights else 20.0
+    y_tol = max(5, int(median_h * 0.55))
+
+    sorted_results = sorted(ocr_results, key=lambda r: min(pt[1] for pt in r['bbox']))
+    lines: list[list[dict]] = [[sorted_results[0]]]
+
+    for r in sorted_results[1:]:
+        curr_y = min(pt[1] for pt in r['bbox'])
+        prev_y = min(pt[1] for pt in lines[-1][-1]['bbox'])
+        if abs(curr_y - prev_y) <= y_tol:
+            lines[-1].append(r)
+        else:
+            lines.append([r])
+
+    return lines
+
+
+def find_line_for_field(
+    lines: list[list[dict]],
+    label: str,
+) -> list[dict] | None:
+    """Return the line group whose combined text contains the field label."""
+    label_lower = label.lower()
+    for group in lines:
+        combined = ' '.join(r['text'] for r in group).lower()
+        if label_lower in combined or label_lower[:3] in combined:
+            return group
+    return None
+
+
+# ── Background sampling ───────────────────────────────────────────────────────
+
+def _sample_bg_near_line(
+    image_rgb: np.ndarray,
+    line_bbox: tuple[int, int, int, int],
+    overlay_bbox: tuple[int, int, int, int],
+) -> tuple[int, int, int]:
+    """
+    Sample the dark background color of the overlay box near a text line.
+
+    Samples a thin strip just above the line (still within the overlay box),
+    falling back to just below if the line is at the top of the box.
+    """
+    ox1, oy1, ox2, oy2 = overlay_bbox
+    lx1, ly1, lx2, ly2 = line_bbox
+    h_img, w_img = image_rgb.shape[:2]
+
+    strip = 4  # px to sample
+
+    # Try above the line
+    sy1 = max(oy1, ly1 - strip - 2)
+    sy2 = max(oy1, ly1 - 2)
+
+    if sy2 - sy1 < 2:
+        # Try below the line
+        sy1 = min(oy2, ly2 + 2)
+        sy2 = min(oy2, ly2 + strip + 2)
+
+    sx1 = max(0, lx1)
+    sx2 = min(w_img, lx2)
+
+    region = image_rgb[sy1:sy2, sx1:sx2]
+    if region.size == 0:
+        # Last resort: sample the very first row of the overlay box
+        region = image_rgb[oy1:oy1 + 4, ox1:ox2]
+
+    if region.size == 0:
+        return (20, 20, 20)
+
+    return tuple(int(v) for v in np.median(region.reshape(-1, 3), axis=0))
+
+
+# ── Single-line surgical replacement ─────────────────────────────────────────
+
+def _replace_line(
+    image_rgb: np.ndarray,
+    line_bbox: tuple[int, int, int, int],
+    label: str,
+    new_value: str,
+    bg_color: tuple[int, int, int],
+) -> np.ndarray:
+    """
+    Replace one text line in the overlay with a new value.
+
+    Steps:
+      1. Fill the line area with the sampled background color (erases old text)
+      2. Render "Label: new_value" in white at the same position
+
+    Font size is measured from the line's actual pixel height so it matches
+    the original regardless of image resolution.
+    """
+    h_img, w_img = image_rgb.shape[:2]
+    x1, y1, x2, y2 = line_bbox
+
+    # Add a small vertical padding so we fully cover descenders/ascenders
+    pad = max(2, int((y2 - y1) * 0.12))
+    fy1 = max(0, y1 - pad)
+    fy2 = min(h_img, y2 + pad)
+
+    line_h = y2 - y1
+    font_size = max(8, int(line_h * 0.88))
+    font = _load_font(font_size)
+
+    result = image_rgb.copy()
+
+    # Step 1: fill old text area with overlay background color
+    result[fy1:fy2, x1:x2] = bg_color
+
+    # Step 2: render new text
+    pil = Image.fromarray(result)
+    draw = ImageDraw.Draw(pil)
+    draw.text((x1, y1), f'{label}: {new_value}', font=font,
+              fill=(255, 255, 255))
+    return np.array(pil)
+
+
+# ── Overlay bbox (for bg sampling reference) ──────────────────────────────────
 
 def compute_overlay_bbox(
     ocr_results: list[dict],
@@ -33,39 +178,24 @@ def compute_overlay_bbox(
     padding: int = 10,
 ) -> tuple[int, int, int, int] | None:
     """
-    Compute the full NoteCam overlay bounding box.
-
-    The tight OCR bbox only covers text character pixels — the actual
-    dark background box is much larger. This function:
-      - Uses OCR results to find WHERE the overlay is (approximate y1)
-      - Then anchors the box to the left and bottom edges (NoteCam always does)
-      - Ensures minimum dimensions proportional to image size
-
-    Returns (x1, y1, x2, y2) or None if ocr_results is empty.
+    Compute the full NoteCam overlay bounding box (anchored to bottom-left).
+    Used only for background color sampling — we do NOT inpaint this area.
     """
     if not ocr_results:
         return None
 
     all_x = [pt[0] for r in ocr_results for pt in r['bbox']]
     all_y = [pt[1] for r in ocr_results for pt in r['bbox']]
-
     h, w = image_shape
 
     ocr_y1 = max(0, int(min(all_y)) - padding)
     ocr_x2 = min(w, int(max(all_x)) + padding)
 
-    # NoteCam overlay is always anchored to the bottom-left corner.
-    # x1 is always 0; y2 is always the image bottom.
     x1 = 0
     y2 = h
-
-    # The overlay box extends at least 42% of image width.
     x2 = max(ocr_x2, int(w * 0.42))
     x2 = min(x2, w)
 
-    # The dark background box starts above the first text line.
-    # Ensure at least 32% of image height is covered — this matches
-    # the typical NoteCam overlay proportion.
     min_box_h = int(h * 0.32)
     y1 = min(ocr_y1, h - min_box_h)
     y1 = max(0, y1)
@@ -73,121 +203,52 @@ def compute_overlay_bbox(
     return (x1, y1, x2, y2)
 
 
-def build_inpaint_mask(
-    image_shape: tuple[int, int],
-    bbox: tuple[int, int, int, int],
-) -> np.ndarray:
-    """Build a uint8 binary mask: 255 inside bbox, 0 elsewhere."""
-    h, w = image_shape
-    mask = np.zeros((h, w), dtype=np.uint8)
-    x1, y1, x2, y2 = bbox
-    mask[y1:y2, x1:x2] = 255
-    return mask
-
-
-def inpaint_region(
-    image_rgb: np.ndarray,
-    mask: np.ndarray,
-    inpaint_radius: int = 5,
-) -> np.ndarray:
-    """
-    Remove the masked region using OpenCV TELEA inpainting.
-
-    TELEA propagates texture from the boundary inward, producing
-    smoother results on natural photographic backgrounds than NS.
-    Returns the inpainted image in RGB format.
-    """
-    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
-    result_bgr = cv2.inpaint(image_bgr, mask, inpaint_radius, cv2.INPAINT_TELEA)
-    return cv2.cvtColor(result_bgr, cv2.COLOR_BGR2RGB)
-
-
-def render_text_overlay(
-    image_rgb: np.ndarray,
-    bbox: tuple[int, int, int, int],
-    fields: dict[str, str | None],
-    bg_alpha: int = 175,
-    line_spacing_factor: float = 1.2,
-) -> np.ndarray:
-    """
-    Re-render edited metadata overlay matching the NoteCam visual style.
-
-    Font size is derived from the full overlay box height (not the tight
-    OCR bbox) so text scales correctly with any image resolution.
-    Padding scales proportionally with the box size.
-
-    Parameters
-    ----------
-    image_rgb  : inpainted image in RGB format
-    bbox       : (x1, y1, x2, y2) — the full overlay box position
-    fields     : edited field values
-    bg_alpha   : dark background opacity (0=transparent, 255=solid)
-    line_spacing_factor : multiplier for advancing between lines
-
-    Returns RGB numpy array with overlay composited in.
-    """
-    lines = [
-        f'{label}: {fields.get(key) or ""}'
-        for key, label in FIELD_ORDER
-    ]
-
-    x1, y1, x2, y2 = bbox
-    box_h = y2 - y1
-    box_w = x2 - x1
-    n_lines = len(lines)
-
-    # Font size: fit n_lines into box_h with top+bottom padding.
-    # Divide box into (n_lines + 2) slots — 1 slot each for top/bottom padding.
-    # Use 80% of each slot for the glyph, 20% for inter-line gap.
-    slot_h = box_h / (n_lines + 2)
-    font_size = max(10, int(slot_h * 0.80))
-    font = _load_font(font_size)
-
-    # Measure actual glyph height for the loaded font
-    try:
-        bb = font.getbbox('Ag')
-        line_h = bb[3] - bb[1]
-    except AttributeError:
-        _, line_h = font.getsize('Ag')  # type: ignore[attr-defined]
-
-    line_advance = int(line_h * line_spacing_factor)
-
-    # Padding proportional to box size (at least a few pixels)
-    left_pad = max(6, int(box_w * 0.025))
-    top_pad  = max(4, int(slot_h * 0.6))   # ~1 slot of top breathing room
-
-    base = Image.fromarray(image_rgb).convert('RGBA')
-    overlay = Image.new('RGBA', base.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
-    # Dark semi-transparent background rectangle
-    draw.rectangle([x1, y1, x2, y2], fill=(0, 0, 0, bg_alpha))
-
-    # White text lines
-    text_x = x1 + left_pad
-    text_y = y1 + top_pad
-    for line in lines:
-        draw.text((text_x, text_y), line, font=font, fill=(255, 255, 255, 255))
-        text_y += line_advance
-
-    result = Image.alpha_composite(base, overlay).convert('RGB')
-    return np.array(result)
-
+# ── Public API ────────────────────────────────────────────────────────────────
 
 def process_image(
     image_rgb: np.ndarray,
     ocr_results: list[dict],
-    fields: dict[str, str | None],
+    original_fields: dict[str, str | None],
+    new_fields: dict[str, str | None],
 ) -> np.ndarray | None:
     """
-    Full pipeline: compute full overlay bbox → inpaint → re-render.
+    Surgically replace only the field values that the user changed.
 
-    Returns processed RGB image, or None if no OCR detections available.
+    For each changed field:
+      - Finds the exact pixel line in the original overlay via OCR
+      - Fills that line with the sampled dark background color
+        (so the overlay box itself is never touched)
+      - Renders the new value text at the same position with the same
+        measured font size → output is indistinguishable from original
+
+    Returns the modified image, or None if no OCR results are available.
     """
-    bbox = compute_overlay_bbox(ocr_results, image_rgb.shape[:2])
-    if bbox is None:
+    if not ocr_results:
         return None
 
-    mask = build_inpaint_mask(image_rgb.shape[:2], bbox)
-    inpainted = inpaint_region(image_rgb, mask)
-    return render_text_overlay(inpainted, bbox, fields)
+    overlay_bbox = compute_overlay_bbox(ocr_results, image_rgb.shape[:2])
+    if overlay_bbox is None:
+        return None
+
+    lines = group_ocr_into_lines(ocr_results)
+    result = image_rgb.copy()
+    changed = 0
+
+    for key, label in FIELD_ORDER:
+        old_val = (original_fields.get(key) or '').strip()
+        new_val = (new_fields.get(key) or '').strip()
+
+        if old_val == new_val:
+            continue  # unchanged — leave original pixels untouched
+
+        group = find_line_for_field(lines, label)
+        if group is None:
+            # OCR missed this line; skip rather than corrupt the image
+            continue
+
+        line_bbox = _bbox_of_group(group)
+        bg_color  = _sample_bg_near_line(result, line_bbox, overlay_bbox)
+        result    = _replace_line(result, line_bbox, label, new_val, bg_color)
+        changed  += 1
+
+    return result if changed > 0 else image_rgb

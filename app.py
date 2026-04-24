@@ -141,11 +141,12 @@ if st.session_state['image_rgb'] is not None:
             'time':      time_,
             'note':      note,
         }
-        with st.spinner("Inpainting original overlay and re-rendering edited text..."):
+        with st.spinner("Replacing changed values (original pixels preserved)..."):
             try:
                 result = process_image(
                     image_rgb,
                     st.session_state['ocr_results'],
+                    st.session_state['fields'],
                     edited_fields,
                 )
                 if result is None:
