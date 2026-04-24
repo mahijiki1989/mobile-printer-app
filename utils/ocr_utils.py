@@ -27,8 +27,8 @@ def crop_overlay_region(image_rgb: np.ndarray) -> tuple[np.ndarray, int, int]:
     y_offset : int    — top y-coordinate of crop in full-image space
     """
     h, w = image_rgb.shape[:2]
-    crop_w = w // 2
-    crop_h = int(h * 0.4)
+    crop_w = int(w * 0.55)   # 55% width — covers full overlay width
+    crop_h = int(h * 0.45)   # 45% height — captures overlay top with margin
     y_offset = h - crop_h
     x_offset = 0
     crop = image_rgb[y_offset:y_offset + crop_h, x_offset:x_offset + crop_w]
