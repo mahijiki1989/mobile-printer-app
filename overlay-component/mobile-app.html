@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0f1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NoteCam Editor</title>
+<style>
+/* ── Base ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0f1117;
+  --surface: #1a1f2e;
+  --border:  rgba(255,255,255,0.10);
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --primary: #2563eb;
+  --primary-h:#1d4ed8;
+  --green:   #22c55e;
+  --radius:  12px;
+  --font:    'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 0 0 80px;
+}
+
+header {
+  padding: 18px 20px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 50;
+}
+
+.logo-dot {
+  width: 28px; height: 28px;
+  background: var(--primary);
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 14px; flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+header span {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ── Upload zone ─────────────────────────────────────────── */
+#upload-zone {
+  margin: 20px 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: rgba(255,255,255,0.02);
+}
+#upload-zone:hover, #upload-zone.drag { border-color: var(--primary); background: rgba(37,99,235,0.06); }
+#upload-zone input { display: none; }
+
+.upload-icon {
+  font-size: 40px;
+  margin-bottom: 10px;
+  display: block;
+  opacity: .7;
+}
+#upload-zone h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+#upload-zone p  { font-size: 13px; color: var(--muted); }
+
+/* ── Image preview with overlay ──────────────────────────── */
+#preview-section { display: none; }
+
+.img-card {
+  position: relative;
+  display: block;
+  line-height: 0;
+  background: #000;
+}
+
+#preview-img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  max-height: 55vw;
+}
+
+/* geo overlay */
+.geo-overlay {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 10;
+  background: rgba(0,0,0,0.60);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  max-width: 58%;
+  min-width: 150px;
+  padding: 6px 10px 8px;
+  border-radius: 3px;
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  font-size: clamp(9px, 1.8vw, 13px);
+  line-height: 1.55;
+  color: #fff;
+  pointer-events: none;   /* overlay is display-only; editing is below */
+}
+
+.geo-row {
+  display: flex;
+  column-gap: 3px;
+}
+
+.geo-lbl {
+  flex-shrink: 0;
+  min-width: 58px;
+  color: rgba(255,255,255,0.88);
+  white-space: nowrap;
+}
+.geo-lbl::after { content: ':'; margin-right: 2px; }
+
+.geo-val-display {
+  color: #fff;
+  word-break: break-word;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+
+/* Powered badge */
+.geo-badge {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  z-index: 10;
+  background: rgba(210,40,40,0.85);
+  color: #fff;
+  font-family: var(--font);
+  font-size: clamp(7px, 1.4vw, 10px);
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Edit fields panel ───────────────────────────────────── */
+.fields-panel {
+  margin: 0 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.fields-header {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.field-row:last-child { border-bottom: none; }
+
+.field-label {
+  flex-shrink: 0;
+  width: 90px;
+  padding: 13px 12px 13px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+  background: rgba(0,0,0,0.15);
+}
+
+.field-input {
+  flex: 1;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  resize: none;
+  min-height: 46px;
+  line-height: 1.5;
+  -webkit-appearance: none;
+}
+
+.field-input:focus {
+  background: rgba(37,99,235,0.06);
+}
+
+/* ── Bottom action bar ───────────────────────────────────── */
+.action-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: rgba(15,17,23,0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  max-width: 540px;
+  margin: 0 auto;
+  /* centre fixed element inside max-width */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+}
+
+.btn {
+  flex: 1;
+  padding: 14px 10px;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  -webkit-appearance: none;
+}
+.btn:active { transform: scale(0.97); opacity: .85; }
+
+.btn--outline {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn--primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn--primary:hover { background: var(--primary-h); }
+
+.btn--green {
+  background: var(--green);
+  color: #fff;
+  display: none;
+}
+
+/* ── Toast ───────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%; transform: translateX(-50%);
+  background: rgba(30,35,50,0.95);
+  color: #fff;
+  font-size: 13px;
+  padding: 10px 20px;
+  border-radius: 100px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+  z-index: 200;
+  border: 1px solid var(--border);
+}
+#toast.show { opacity: 1; }
+
+/* ── Upload another (top bar link) ───────────────────────── */
+#change-btn {
+  font-size: 12px;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(37,99,235,0.3);
+  background: rgba(37,99,235,0.08);
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: none;
+}
+
+/* ── Canvas (hidden, used for download render) ───────────── */
+#render-canvas { display: none; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-dot">📍</div>
+    <h1>NoteCam Editor</h1>
+    <span id="change-btn" onclick="resetApp()">Change Photo</span>
+  </header>
+
+  <!-- Upload zone -->
+  <div id="upload-zone" onclick="document.getElementById('file-input').click()"
+       ondragover="e.preventDefault();this.classList.add('drag')"
+       ondragleave="this.classList.remove('drag')"
+       ondrop="handleDrop(event)">
+    <input type="file" id="file-input" accept="image/*" onchange="loadImage(event)">
+    <span class="upload-icon">🖼️</span>
+    <h2>Upload a NoteCam Photo</h2>
+    <p>Tap to select from your gallery<br>or drag &amp; drop here</p>
+  </div>
+
+  <!-- Preview + overlay -->
+  <div id="preview-section">
+
+    <div class="img-card" id="img-card">
+      <img id="preview-img" alt="Uploaded photo">
+
+      <div class="geo-overlay" id="geo-overlay">
+        <div class="geo-row"><span class="geo-lbl">Latitude</span><span class="geo-val-display" id="d-lat"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Longitude</span><span class="geo-val-display" id="d-lon"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Elevation</span><span class="geo-val-display" id="d-elev"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Accuracy</span><span class="geo-val-display" id="d-acc"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Time</span><span class="geo-val-display" id="d-time"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Note</span><span class="geo-val-display" id="d-note"></span></div>
+      </div>
+
+      <div class="geo-badge">Powered by NoteCam</div>
+    </div>
+
+    <!-- Editable fields -->
+    <div style="height:14px"></div>
+
+    <div class="fields-panel">
+      <div class="fields-header">
+        <span>Edit Fields</span>
+        <span style="font-size:11px;font-weight:400">Tap any value to edit</span>
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">Latitude</div>
+        <input class="field-input" id="f-lat" type="text"
+               inputmode="decimal" placeholder="e.g. 24.032752"
+               oninput="sync('lat')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Longitude</div>
+        <input class="field-input" id="f-lon" type="text"
+               inputmode="decimal" placeholder="e.g. 85.489668"
+               oninput="sync('lon')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Elevation</div>
+        <input class="field-input" id="f-elev" type="text"
+               placeholder="e.g. 86.57 m"
+               oninput="sync('elev')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Accuracy</div>
+        <input class="field-input" id="f-acc" type="text"
+               placeholder="e.g. 8.026 m"
+               oninput="sync('acc')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Time</div>
+        <input class="field-input" id="f-time" type="text"
+               placeholder="DD-MM-YYYY, HH:MM"
+               oninput="sync('time')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Note</div>
+        <textarea class="field-input" id="f-note" rows="2"
+                  placeholder="Location description…"
+                  oninput="sync('note');autoGrow(this)"></textarea>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+  </div><!-- /preview-section -->
+
+</div><!-- /app -->
+
+<!-- Fixed bottom action bar -->
+<div class="action-bar" id="action-bar" style="display:none">
+  <button class="btn btn--outline" onclick="resetFields()">↺ Reset</button>
+  <button class="btn btn--primary" onclick="downloadImage()">⬇ Download Image</button>
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<!-- Hidden canvas for rendering -->
+<canvas id="render-canvas"></canvas>
+
+<script>
+/* ── State ───────────────────────────────────────────────── */
+let originalImage = null;   // Image object
+let originalDataURL = null; // raw data URL of uploaded file
+let imgNaturalW = 0, imgNaturalH = 0;
+
+const KEYS = ['lat','lon','elev','acc','time','note'];
+
+/* ── Load image ──────────────────────────────────────────── */
+function loadImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  readFile(file);
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) readFile(file);
+}
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    originalDataURL = ev.target.result;
+    showPreview(originalDataURL);
+  };
+  reader.readAsDataURL(file);
+}
+
+function showPreview(src) {
+  const img = document.getElementById('preview-img');
+  img.onload = () => {
+    imgNaturalW = img.naturalWidth;
+    imgNaturalH = img.naturalHeight;
+  };
+  img.src = src;
+
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('preview-section').style.display = 'block';
+  document.getElementById('action-bar').style.display = 'flex';
+  document.getElementById('change-btn').style.display = 'inline-block';
+}
+
+/* ── Sync input → overlay display ───────────────────────── */
+function sync(key) {
+  const val = document.getElementById('f-' + key).value;
+  document.getElementById('d-' + key).textContent = val;
+}
+
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+/* ── Reset fields ────────────────────────────────────────── */
+function resetFields() {
+  KEYS.forEach(k => {
+    const inp = document.getElementById('f-' + k);
+    inp.value = '';
+    if (inp.tagName === 'TEXTAREA') autoGrow(inp);
+    document.getElementById('d-' + k).textContent = '';
+  });
+  toast('Fields cleared');
+}
+
+/* ── Reset app (upload new photo) ────────────────────────── */
+function resetApp() {
+  document.getElementById('upload-zone').style.display = 'block';
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('action-bar').style.display = 'none';
+  document.getElementById('change-btn').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  originalDataURL = null;
+  resetFields();
+}
+
+/* ── Download: render image + overlay onto canvas ───────── */
+function downloadImage() {
+  if (!originalDataURL) return;
+
+  const canvas = document.getElementById('render-canvas');
+  const ctx    = canvas.getContext('2d');
+  const img    = new Image();
+
+  img.onload = () => {
+    const W = img.naturalWidth;
+    const H = img.naturalHeight;
+    canvas.width  = W;
+    canvas.height = H;
+
+    /* 1 — Draw original photo */
+    ctx.drawImage(img, 0, 0, W, H);
+
+    /* 2 — Draw dark semi-transparent overlay box */
+    const boxH = Math.round(H * 0.32);
+    const boxW = Math.round(W * 0.44);
+    const boxX = 0;
+    const boxY = H - boxH;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.60)';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+
+    /* 3 — Draw text lines */
+    const fields = [
+      ['Latitude',  document.getElementById('f-lat').value],
+      ['Longitude', document.getElementById('f-lon').value],
+      ['Elevation', document.getElementById('f-elev').value],
+      ['Accuracy',  document.getElementById('f-acc').value],
+      ['Time',      document.getElementById('f-time').value],
+      ['Note',      document.getElementById('f-note').value],
+    ];
+
+    const slotH   = boxH / (fields.length + 1.5);
+    const fontSize = Math.max(10, Math.round(slotH * 0.78));
+    const leftPad  = Math.round(boxW * 0.035);
+    const topPad   = Math.round(slotH * 0.55);
+    const labelW   = Math.round(fontSize * 5.6); // fixed label column
+
+    ctx.font         = `${fontSize}px Arial, Helvetica, sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.shadowColor  = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur   = 4;
+    ctx.shadowOffsetY = 1;
+
+    fields.forEach(([label, val], i) => {
+      const y = boxY + topPad + i * slotH;
+
+      /* label (slightly dimmed) */
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.fillText(label + ': ', boxX + leftPad, y);
+
+      /* value (bright white) */
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(val || '', boxX + leftPad + labelW, y);
+    });
+
+    /* 4 — "Powered by NoteCam" badge (bottom-right) */
+    const badgeFontSize = Math.max(8, Math.round(fontSize * 0.72));
+    ctx.font      = `700 ${badgeFontSize}px Arial, Helvetica, sans-serif`;
+    ctx.fillStyle = 'rgba(210,40,40,0.88)';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    const badgePadX = Math.round(W * 0.018);
+    const badgePadY = Math.round(H * 0.015);
+    const badgeText = 'Powered by NoteCam';
+    const badgeTW   = ctx.measureText(badgeText).width;
+    const badgeH    = badgeFontSize + 8;
+    const badgeW    = badgeTW + 16;
+    const bx = W - badgeW - badgePadX;
+    const by = H - badgeH - badgePadY;
+
+    ctx.fillRect(bx, by, badgeW, badgeH);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(badgeText, bx + 8, by + 4);
+
+    /* 5 — Trigger download */
+    const link = document.createElement('a');
+    link.download = 'notecam_edited.jpg';
+    link.href = canvas.toDataURL('image/jpeg', 0.94);
+    link.click();
+
+    toast('Image downloaded!');
+  };
+
+  img.src = originalDataURL;
+}
+
+/* ── Toast helper ────────────────────────────────────────── */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+</script>
+
+</body>
+</html>
