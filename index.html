@@ -1,99 +1,482 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AdvPrint - Mobile Print Master</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0f1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>NoteCam Editor</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0f1117;
+  --surface: #1a1f2e;
+  --border:  rgba(255,255,255,0.10);
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --primary: #2563eb;
+  --primary-h:#1d4ed8;
+  --radius:  12px;
+  --font:    'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 0 0 80px;
+}
+
+header {
+  padding: 18px 20px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 50;
+}
+
+.logo-dot {
+  width: 28px; height: 28px;
+  background: var(--primary);
+  border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 14px; flex-shrink: 0;
+}
+
+header h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+
+#change-btn {
+  font-size: 12px;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(37,99,235,0.3);
+  background: rgba(37,99,235,0.08);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+  display: none;
+}
+
+#upload-zone {
+  margin: 20px 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 48px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: rgba(255,255,255,0.02);
+}
+#upload-zone:hover, #upload-zone.drag { border-color: var(--primary); background: rgba(37,99,235,0.06); }
+#upload-zone input { display: none; }
+.upload-icon { font-size: 44px; margin-bottom: 12px; display: block; }
+#upload-zone h2 { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+#upload-zone p  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+#preview-section { display: none; }
+
+.img-card { position: relative; display: block; line-height: 0; background: #000; }
+
+#preview-img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  max-height: 56vw;
+}
+
+.geo-overlay {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  z-index: 10;
+  background: rgba(0,0,0,0.60);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  max-width: 58%;
+  min-width: 148px;
+  padding: 6px 10px 8px;
+  border-radius: 3px;
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  font-size: clamp(8px, 1.8vw, 13px);
+  line-height: 1.55;
+  color: #fff;
+  pointer-events: none;
+}
+
+.geo-row { display: flex; column-gap: 3px; }
+
+.geo-lbl {
+  flex-shrink: 0;
+  min-width: 56px;
+  color: rgba(255,255,255,0.88);
+  white-space: nowrap;
+}
+.geo-lbl::after { content: ':'; margin-right: 2px; }
+
+.geo-val-display {
+  color: #fff;
+  word-break: break-word;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+
+.geo-badge {
+  position: absolute;
+  bottom: 8px; right: 8px;
+  z-index: 10;
+  background: rgba(210,40,40,0.85);
+  color: #fff;
+  font-family: var(--font);
+  font-size: clamp(7px, 1.4vw, 10px);
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.fields-panel {
+  margin: 14px 16px 0;
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.fields-header {
+  padding: 11px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.field-row:last-child { border-bottom: none; }
+
+.field-label {
+  flex-shrink: 0;
+  width: 88px;
+  padding: 13px 10px 13px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+  background: rgba(0,0,0,0.15);
+}
+
+.field-input {
+  flex: 1;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  resize: none;
+  min-height: 46px;
+  line-height: 1.5;
+  -webkit-appearance: none;
+}
+.field-input:focus { background: rgba(37,99,235,0.06); }
+
+.action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 540px;
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  background: rgba(15,17,23,0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+}
+
+.btn {
+  flex: 1;
+  padding: 14px 10px;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  -webkit-appearance: none;
+}
+.btn:active { transform: scale(0.97); opacity: .85; }
+.btn--outline { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.btn--primary { background: var(--primary); color: #fff; }
+
+#toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%; transform: translateX(-50%);
+  background: rgba(30,35,50,0.95);
+  color: #fff;
+  font-size: 13px;
+  padding: 10px 20px;
+  border-radius: 100px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .25s;
+  pointer-events: none;
+  z-index: 200;
+  border: 1px solid var(--border);
+}
+#toast.show { opacity: 1; }
+
+#render-canvas { display: none; }
+</style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header -->
-        <header class="glass-panel">
-            <div class="logo">
-                <i class="fa-solid fa-print"></i>
-                <span>AdvPrint Mobile</span>
-            </div>
-            <div class="actions">
-                <label for="file-upload" class="btn primary-btn">
-                    <i class="fa-solid fa-folder-open"></i> Open HTML
-                </label>
-                <input type="file" id="file-upload" accept=".html,.htm" hidden>
-            </div>
-        </header>
 
-        <!-- Main Content (Preview) -->
-        <main class="preview-container">
-            <div id="no-file-msg" class="empty-state">
-                <i class="fa-solid fa-file-code"></i>
-                <p>Advanced Printer<br><small>Open any HTML file to start previewing desktop-like print in mobile.</small></p>
-            </div>
-            <iframe id="preview-frame" title="Print Preview"></iframe>
-        </main>
+<div class="app">
+  <header>
+    <div class="logo-dot">📍</div>
+    <h1>NoteCam Editor</h1>
+    <span id="change-btn" onclick="resetApp()">Change Photo</span>
+  </header>
 
-        <!-- Settings Drawer Overlay -->
-        <div id="settings-backdrop" class="backdrop"></div>
+  <div id="upload-zone"
+       onclick="document.getElementById('file-input').click()"
+       ondragover="event.preventDefault();this.classList.add('drag')"
+       ondragleave="this.classList.remove('drag')"
+       ondrop="handleDrop(event)">
+    <input type="file" id="file-input" accept="image/*" onchange="loadImage(event)">
+    <span class="upload-icon">🖼️</span>
+    <h2>Upload a NoteCam Photo</h2>
+    <p>Tap to select from your gallery<br>or drag &amp; drop here</p>
+  </div>
 
-        <!-- Print Settings Drawer -->
-        <aside id="settings-drawer" class="settings-drawer glass-panel">
-            <div class="drawer-handle"></div>
-            <h3><i class="fa-solid fa-sliders"></i> Print Settings</h3>
-            
-            <div class="setting-group">
-                <label for="print-scale">Scale: <span id="scale-val">100%</span></label>
-                <input type="range" id="print-scale" min="10" max="200" value="100">
-            </div>
-
-            <div class="setting-group">
-                <label>Margins (cm)</label>
-                <div class="margin-grid">
-                    <div>
-                        <label>Top</label>
-                        <input type="number" id="margin-top" value="1" step="0.5">
-                    </div>
-                    <div>
-                        <label>Right</label>
-                        <input type="number" id="margin-right" value="1" step="0.5">
-                    </div>
-                    <div>
-                        <label>Bottom</label>
-                        <input type="number" id="margin-bottom" value="1" step="0.5">
-                    </div>
-                    <div>
-                        <label>Left</label>
-                        <input type="number" id="margin-left" value="1" step="0.5">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="setting-group toggle-group">
-                <label for="background-graphics">Print Background Graphics</label>
-                <label class="switch">
-                  <input type="checkbox" id="background-graphics" checked>
-                  <span class="slider round"></span>
-                </label>
-            </div>
-
-            <button id="btn-print" class="btn action-btn">
-                <i class="fa-solid fa-file-pdf"></i> Save as PDF
-            </button>
-        </aside>
-
-        <!-- Floating Action Button for Settings on Mobile -->
-        <button id="fab-settings" class="fab" aria-label="Settings">
-            <i class="fa-solid fa-gear"></i>
-        </button>
+  <div id="preview-section">
+    <div class="img-card">
+      <img id="preview-img" alt="Uploaded photo">
+      <div class="geo-overlay">
+        <div class="geo-row"><span class="geo-lbl">Latitude</span><span class="geo-val-display" id="d-lat"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Longitude</span><span class="geo-val-display" id="d-lon"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Elevation</span><span class="geo-val-display" id="d-elev"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Accuracy</span><span class="geo-val-display" id="d-acc"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Time</span><span class="geo-val-display" id="d-time"></span></div>
+        <div class="geo-row"><span class="geo-lbl">Note</span><span class="geo-val-display" id="d-note"></span></div>
+      </div>
+      <div class="geo-badge">Powered by NoteCam</div>
     </div>
 
-    <script src="app.js"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW setup failed'));
-      }
-    </script>
+    <div class="fields-panel">
+      <div class="fields-header">
+        <span>Edit Fields</span>
+        <span style="font-size:11px;font-weight:400">Tap any value to edit</span>
+      </div>
+      <div class="field-row">
+        <div class="field-label">Latitude</div>
+        <input class="field-input" id="f-lat" type="text" inputmode="decimal" placeholder="e.g. 24.032752" oninput="sync('lat')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Longitude</div>
+        <input class="field-input" id="f-lon" type="text" inputmode="decimal" placeholder="e.g. 85.489668" oninput="sync('lon')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Elevation</div>
+        <input class="field-input" id="f-elev" type="text" placeholder="e.g. 86.57 m" oninput="sync('elev')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Accuracy</div>
+        <input class="field-input" id="f-acc" type="text" placeholder="e.g. 8.026 m" oninput="sync('acc')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Time</div>
+        <input class="field-input" id="f-time" type="text" placeholder="DD-MM-YYYY, HH:MM" oninput="sync('time')">
+      </div>
+      <div class="field-row">
+        <div class="field-label">Note</div>
+        <textarea class="field-input" id="f-note" rows="2" placeholder="Location description…" oninput="sync('note');autoGrow(this)"></textarea>
+      </div>
+    </div>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<div class="action-bar" id="action-bar" style="display:none">
+  <button class="btn btn--outline" onclick="resetFields()">↺ Reset</button>
+  <button class="btn btn--primary" onclick="downloadImage()">⬇ Download Image</button>
+</div>
+
+<div id="toast"></div>
+<canvas id="render-canvas"></canvas>
+
+<script>
+let originalDataURL = null;
+const KEYS = ['lat','lon','elev','acc','time','note'];
+
+function loadImage(e) {
+  const file = e.target.files[0];
+  if (file) readFile(file);
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) readFile(file);
+}
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => { originalDataURL = ev.target.result; showPreview(ev.target.result); };
+  reader.readAsDataURL(file);
+}
+
+function showPreview(src) {
+  document.getElementById('preview-img').src = src;
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('preview-section').style.display = 'block';
+  document.getElementById('action-bar').style.display = 'flex';
+  document.getElementById('change-btn').style.display = 'inline-block';
+}
+
+function sync(key) {
+  document.getElementById('d-' + key).textContent = document.getElementById('f-' + key).value;
+}
+
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function resetFields() {
+  KEYS.forEach(k => {
+    const inp = document.getElementById('f-' + k);
+    inp.value = '';
+    if (inp.tagName === 'TEXTAREA') autoGrow(inp);
+    document.getElementById('d-' + k).textContent = '';
+  });
+  toast('Fields cleared');
+}
+
+function resetApp() {
+  document.getElementById('upload-zone').style.display = 'block';
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('action-bar').style.display = 'none';
+  document.getElementById('change-btn').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  originalDataURL = null;
+  resetFields();
+}
+
+function downloadImage() {
+  if (!originalDataURL) return;
+  const canvas = document.getElementById('render-canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = () => {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    canvas.width = W; canvas.height = H;
+    ctx.drawImage(img, 0, 0, W, H);
+
+    const boxH = Math.round(H * 0.32);
+    const boxW = Math.round(W * 0.44);
+    const boxY = H - boxH;
+    ctx.fillStyle = 'rgba(0,0,0,0.60)';
+    ctx.fillRect(0, boxY, boxW, boxH);
+
+    const fields = [
+      ['Latitude',  document.getElementById('f-lat').value],
+      ['Longitude', document.getElementById('f-lon').value],
+      ['Elevation', document.getElementById('f-elev').value],
+      ['Accuracy',  document.getElementById('f-acc').value],
+      ['Time',      document.getElementById('f-time').value],
+      ['Note',      document.getElementById('f-note').value],
+    ];
+
+    const slotH = boxH / (fields.length + 1.5);
+    const fontSize = Math.max(10, Math.round(slotH * 0.78));
+    const leftPad = Math.round(boxW * 0.035);
+    const topPad = Math.round(slotH * 0.55);
+    const labelW = Math.round(fontSize * 5.6);
+
+    ctx.font = `${fontSize}px Arial, Helvetica, sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetY = 1;
+
+    fields.forEach(([label, val], i) => {
+      const y = boxY + topPad + i * slotH;
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.fillText(label + ': ', leftPad, y);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(val || '', leftPad + labelW, y);
+    });
+
+    const bfs = Math.max(8, Math.round(fontSize * 0.72));
+    ctx.font = `700 ${bfs}px Arial, Helvetica, sans-serif`;
+    ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    const bText = 'Powered by NoteCam';
+    const bTW = ctx.measureText(bText).width;
+    const bH = bfs + 8, bW = bTW + 16;
+    const bx = W - bW - Math.round(W * 0.018);
+    const by = H - bH - Math.round(H * 0.015);
+    ctx.fillStyle = 'rgba(210,40,40,0.88)';
+    ctx.fillRect(bx, by, bW, bH);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(bText, bx + 8, by + 4);
+
+    const link = document.createElement('a');
+    link.download = 'notecam_edited.jpg';
+    link.href = canvas.toDataURL('image/jpeg', 0.94);
+    link.click();
+    toast('Image downloaded! ✓');
+  };
+  img.src = originalDataURL;
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+</script>
 </body>
 </html>
