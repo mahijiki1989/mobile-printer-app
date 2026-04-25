@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geo-Tag Overlay Component — Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="overlay.css">
+  <style>
+    /* ── Demo page shell (NOT part of the reusable component) ── */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+      font-size: 14px;
+      padding: 28px 20px 60px;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #f8fafc;
+      margin: 0 0 4px;
+      letter-spacing: -0.01em;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 13px;
+      margin: 0 0 28px;
+    }
+
+    /* ── Controls bar ───────────────────────────────────────── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      padding: 7px 16px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: #e2e8f0;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn:hover  { background: rgba(255,255,255,0.12); }
+    .btn--primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #fff;
+    }
+    .btn--primary:hover { background: #1d4ed8; }
+    .btn--danger {
+      background: rgba(239,68,68,0.15);
+      border-color: rgba(239,68,68,0.35);
+      color: #f87171;
+    }
+    .btn--danger:hover { background: rgba(239,68,68,0.25); }
+
+    /* ── Gallery grid ───────────────────────────────────────── */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* Demo images: CSS gradient backgrounds simulate photos */
+    .demo-img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      display: block;
+      border-radius: 4px;
+    }
+
+    /* Fallback gradient "photo" when no real image is available */
+    .img-card--gradient-1 .demo-img {
+      background: linear-gradient(155deg,
+        #87CEEB 0%, #87CEEB 40%,
+        #8B6914 40%, #6B5012 60%,
+        #5a4010 60%, #3d2b0a 100%);
+      src: none;
+    }
+    .img-card--gradient-2 .demo-img {
+      background: linear-gradient(170deg,
+        #d4a373 0%, #d4a373 30%,
+        #a07850 30%, #7a5c38 65%,
+        #2d4a1e 65%, #1a3012 100%);
+    }
+    .img-card--gradient-3 .demo-img {
+      background: linear-gradient(140deg,
+        #4a6741 0%, #3a5230 35%,
+        #8b6914 35%, #6b5012 70%,
+        #c9b99a 70%, #b8a88a 100%);
+    }
+
+    /* ── Output panel ───────────────────────────────────────── */
+    .output-panel {
+      margin-top: 28px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .output-panel h2 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin: 0 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .output-panel pre {
+      margin: 0;
+      font-family: 'Roboto Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #7dd3fc;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ── Usage code block ───────────────────────────────────── */
+    .code-block {
+      margin-top: 40px;
+      background: #0d1117;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 20px;
+      overflow-x: auto;
+    }
+    .code-block h2 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin: 0 0 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .code-block pre {
+      margin: 0;
+      font-family: 'Roboto Mono', 'Fira Code', 'Courier New', monospace;
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #e2e8f0;
+    }
+    .c-tag    { color: #f472b6; }
+    .c-attr   { color: #7dd3fc; }
+    .c-val    { color: #86efac; }
+    .c-comment{ color: #475569; }
+  </style>
+</head>
+<body>
+
+  <h1>Geo-Tag Overlay Component</h1>
+  <p class="subtitle">
+    Reusable editable metadata overlay — consistent across every image,
+    any size, any aspect ratio.
+  </p>
+
+  <!-- ── Controls ─────────────────────────────────────────────────────── -->
+  <div class="controls">
+    <button class="btn btn--primary" onclick="exportAll()">Export All Fields (JSON)</button>
+    <button class="btn" onclick="resetAll()">Reset All Fields</button>
+    <button class="btn" onclick="lockAll()">Lock (Read-only)</button>
+    <button class="btn" onclick="unlockAll()">Unlock (Editable)</button>
+    <button class="btn btn--danger" onclick="clearOutput()">Clear Output</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       GALLERY
+       Each .img-card is a self-contained reusable unit.
+       Copy-paste the pattern for any number of images.
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="gallery">
+
+    <!-- ── Image 1 ─────────────────────────────────────────────────────── -->
+    <div class="img-card img-card--gradient-1" id="card-1">
+
+      <!-- Replace src with any real image path -->
+      <img
+        class="demo-img"
+        src="../019dc0dc-1000007454.jpg"
+        onerror="this.style.visibility='hidden'; this.style.height='300px'"
+        alt="Construction site"
+      >
+
+      <div class="geo-overlay" data-card="1">
+        <div class="geo-row">
+          <span class="geo-lbl">Latitude</span>
+          <input class="geo-val" type="text"
+            data-field="latitude"
+            data-original="24.032752"
+            value="24.032752"
+            placeholder="e.g. 24.032752"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Longitude</span>
+          <input class="geo-val" type="text"
+            data-field="longitude"
+            data-original="85.489668"
+            value="85.489668"
+            placeholder="e.g. 85.489668"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Elevation</span>
+          <input class="geo-val" type="text"
+            data-field="elevation"
+            data-original="86.57 m"
+            value="86.57 m"
+            placeholder="e.g. 86.57 m"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Accuracy</span>
+          <input class="geo-val" type="text"
+            data-field="accuracy"
+            data-original="8.026 m"
+            value="8.026 m"
+            placeholder="e.g. 8.026 m"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Time</span>
+          <input class="geo-val" type="text"
+            data-field="time"
+            data-original="21-04-2026, 11:20"
+            value="21-04-2026, 11:20"
+            placeholder="DD-MM-YYYY, HH:MM"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Note</span>
+          <textarea class="geo-val geo-val--note"
+            data-field="note"
+            data-original="Steel Nagar to dhumraroad khurli sve, hawada"
+            placeholder="Location note…"
+            rows="1"
+            spellcheck="false">Steel Nagar to dhumraroad khurli sve, hawada</textarea>
+        </div>
+      </div>
+
+      <!-- Optional "Powered by" badge -->
+      <div class="geo-badge">Powered by NoteCam</div>
+
+    </div><!-- /.img-card -->
+
+
+    <!-- ── Image 2 ─────────────────────────────────────────────────────── -->
+    <div class="img-card img-card--gradient-2" id="card-2">
+
+      <img
+        class="demo-img"
+        src=""
+        onerror="this.style.visibility='hidden'; this.style.height='300px'"
+        alt="Field survey"
+      >
+
+      <div class="geo-overlay" data-card="2">
+        <div class="geo-row">
+          <span class="geo-lbl">Latitude</span>
+          <input class="geo-val" type="text"
+            data-field="latitude"
+            data-original="28.613939"
+            value="28.613939"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Longitude</span>
+          <input class="geo-val" type="text"
+            data-field="longitude"
+            data-original="77.209021"
+            value="77.209021"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Elevation</span>
+          <input class="geo-val" type="text"
+            data-field="elevation"
+            data-original="216.4 m"
+            value="216.4 m"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Accuracy</span>
+          <input class="geo-val" type="text"
+            data-field="accuracy"
+            data-original="5.012 m"
+            value="5.012 m"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Time</span>
+          <input class="geo-val" type="text"
+            data-field="time"
+            data-original="22-04-2026, 09:45"
+            value="22-04-2026, 09:45"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Note</span>
+          <textarea class="geo-val geo-val--note"
+            data-field="note"
+            data-original="Delhi survey plot A-7"
+            rows="1"
+            spellcheck="false">Delhi survey plot A-7</textarea>
+        </div>
+      </div>
+
+      <div class="geo-badge">Powered by NoteCam</div>
+
+    </div><!-- /.img-card -->
+
+
+    <!-- ── Image 3 ─────────────────────────────────────────────────────── -->
+    <div class="img-card img-card--gradient-3" id="card-3">
+
+      <img
+        class="demo-img"
+        src=""
+        onerror="this.style.visibility='hidden'; this.style.height='300px'"
+        alt="Road inspection"
+      >
+
+      <div class="geo-overlay" data-card="3">
+        <div class="geo-row">
+          <span class="geo-lbl">Latitude</span>
+          <input class="geo-val" type="text"
+            data-field="latitude"
+            data-original="19.076090"
+            value="19.076090"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Longitude</span>
+          <input class="geo-val" type="text"
+            data-field="longitude"
+            data-original="72.877426"
+            value="72.877426"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Elevation</span>
+          <input class="geo-val" type="text"
+            data-field="elevation"
+            data-original="14.2 m"
+            value="14.2 m"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Accuracy</span>
+          <input class="geo-val" type="text"
+            data-field="accuracy"
+            data-original="3.540 m"
+            value="3.540 m"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Time</span>
+          <input class="geo-val" type="text"
+            data-field="time"
+            data-original="23-04-2026, 14:30"
+            value="23-04-2026, 14:30"
+            spellcheck="false">
+        </div>
+        <div class="geo-row">
+          <span class="geo-lbl">Note</span>
+          <textarea class="geo-val geo-val--note"
+            data-field="note"
+            data-original="Mumbai coastal road, km 12"
+            rows="1"
+            spellcheck="false">Mumbai coastal road, km 12</textarea>
+        </div>
+      </div>
+
+      <div class="geo-badge">Powered by NoteCam</div>
+
+    </div><!-- /.img-card -->
+
+  </div><!-- /.gallery -->
+
+
+  <!-- ── Live JSON output ──────────────────────────────────────────────── -->
+  <div class="output-panel" id="output-panel" style="display:none">
+    <h2>Live Field Data (JSON)</h2>
+    <pre id="output-pre"></pre>
+  </div>
+
+
+  <!-- ── How to use — Copy-paste template ─────────────────────────────── -->
+  <div class="code-block">
+    <h2>How to Use — Minimal Template</h2>
+    <pre><span class="c-comment">&lt;!-- 1. Include the stylesheet --&gt;</span>
+<span class="c-tag">&lt;link</span> <span class="c-attr">rel</span>=<span class="c-val">"stylesheet"</span> <span class="c-attr">href</span>=<span class="c-val">"overlay.css"</span><span class="c-tag">&gt;</span>
+
+<span class="c-comment">&lt;!-- 2. Wrap your image in .img-card --&gt;</span>
+<span class="c-tag">&lt;div</span> <span class="c-attr">class</span>=<span class="c-val">"img-card"</span><span class="c-tag">&gt;</span>
+
+  <span class="c-tag">&lt;img</span> <span class="c-attr">src</span>=<span class="c-val">"your-photo.jpg"</span> <span class="c-attr">alt</span>=<span class="c-val">"..."</span><span class="c-tag">&gt;</span>
+
+  <span class="c-comment">&lt;!-- 3. Place the overlay inside .img-card --&gt;</span>
+  <span class="c-tag">&lt;div</span> <span class="c-attr">class</span>=<span class="c-val">"geo-overlay"</span><span class="c-tag">&gt;</span>
+    <span class="c-tag">&lt;div</span> <span class="c-attr">class</span>=<span class="c-val">"geo-row"</span><span class="c-tag">&gt;</span>
+      <span class="c-tag">&lt;span</span> <span class="c-attr">class</span>=<span class="c-val">"geo-lbl"</span><span class="c-tag">&gt;</span>Latitude<span class="c-tag">&lt;/span&gt;</span>
+      <span class="c-tag">&lt;input</span> <span class="c-attr">class</span>=<span class="c-val">"geo-val"</span> <span class="c-attr">type</span>=<span class="c-val">"text"</span>
+        <span class="c-attr">data-field</span>=<span class="c-val">"latitude"</span>
+        <span class="c-attr">data-original</span>=<span class="c-val">"24.032752"</span>
+        <span class="c-attr">value</span>=<span class="c-val">"24.032752"</span><span class="c-tag">&gt;</span>
+    <span class="c-tag">&lt;/div&gt;</span>
+    <span class="c-comment">&lt;!-- repeat .geo-row for each field … --&gt;</span>
+    <span class="c-tag">&lt;div</span> <span class="c-attr">class</span>=<span class="c-val">"geo-row"</span><span class="c-tag">&gt;</span>
+      <span class="c-tag">&lt;span</span> <span class="c-attr">class</span>=<span class="c-val">"geo-lbl"</span><span class="c-tag">&gt;</span>Note<span class="c-tag">&lt;/span&gt;</span>
+      <span class="c-tag">&lt;textarea</span> <span class="c-attr">class</span>=<span class="c-val">"geo-val geo-val--note"</span>
+        <span class="c-attr">data-field</span>=<span class="c-val">"note"</span>
+        <span class="c-attr">rows</span>=<span class="c-val">"1"</span><span class="c-tag">&gt;</span>Your note here<span class="c-tag">&lt;/textarea&gt;</span>
+    <span class="c-tag">&lt;/div&gt;</span>
+  <span class="c-tag">&lt;/div&gt;</span>
+
+  <span class="c-comment">&lt;!-- Optional badge --&gt;</span>
+  <span class="c-tag">&lt;div</span> <span class="c-attr">class</span>=<span class="c-val">"geo-badge"</span><span class="c-tag">&gt;</span>Powered by NoteCam<span class="c-tag">&lt;/div&gt;</span>
+
+<span class="c-tag">&lt;/div&gt;</span>
+
+<span class="c-comment">&lt;!-- 4. Include the script --&gt;</span>
+<span class="c-tag">&lt;script</span> <span class="c-attr">src</span>=<span class="c-val">"overlay.js"</span><span class="c-tag">&gt;&lt;/script&gt;</span>
+
+<span class="c-comment">&lt;!-- 5. Listen for changes (optional) --&gt;</span>
+<span class="c-tag">&lt;script&gt;</span>
+  document.querySelector(<span class="c-val">'.geo-overlay'</span>)
+    .addEventListener(<span class="c-val">'geo:change'</span>, e =&gt; {
+      console.log(e.detail); <span class="c-comment">// { field, value, all }</span>
+    });
+<span class="c-tag">&lt;/script&gt;</span></pre>
+  </div>
+
+  <!-- ── Scripts ───────────────────────────────────────────────────────── -->
+  <script src="overlay.js"></script>
+  <script>
+    /* ── Live output on any field change ─────────────────────────────── */
+    document.querySelectorAll('.geo-overlay').forEach(overlay => {
+      overlay.addEventListener('geo:change', () => renderOutput());
+    });
+
+    function renderOutput() {
+      const panel = document.getElementById('output-panel');
+      const pre   = document.getElementById('output-pre');
+      const all   = {};
+
+      document.querySelectorAll('.geo-overlay[data-card]').forEach(overlay => {
+        const card = overlay.dataset.card;
+        all[`image_${card}`] = GeoOverlay.getData(overlay);
+      });
+
+      panel.style.display = 'block';
+      pre.textContent = JSON.stringify(all, null, 2);
+    }
+
+    /* ── Control button handlers ─────────────────────────────────────── */
+    function exportAll() {
+      renderOutput();
+      document.getElementById('output-panel').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetAll() {
+      document.querySelectorAll('.geo-overlay').forEach(el => GeoOverlay.reset(el));
+    }
+
+    function lockAll() {
+      document.querySelectorAll('.geo-overlay').forEach(el => GeoOverlay.lock(el));
+    }
+
+    function unlockAll() {
+      document.querySelectorAll('.geo-overlay').forEach(el => GeoOverlay.unlock(el));
+    }
+
+    function clearOutput() {
+      const panel = document.getElementById('output-panel');
+      panel.style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>

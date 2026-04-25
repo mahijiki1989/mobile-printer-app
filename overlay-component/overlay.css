@@ -1,0 +1,232 @@
+/* ═══════════════════════════════════════════════════════
+   GEO-TAG OVERLAY COMPONENT  ·  overlay.css  v1.0
+   -------------------------------------------------------
+   Drop-in reusable overlay for any NoteCam-style image.
+
+   Usage:
+     1. Wrap every <img> in a <div class="img-card">
+     2. Add a <div class="geo-overlay"> inside the wrapper
+     3. Use .geo-row / .geo-lbl / .geo-val for each field
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Reset ──────────────────────────────────────────────── */
+.img-card *,
+.img-card *::before,
+.img-card *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Image card wrapper ─────────────────────────────────── */
+/*
+   Must be `position: relative` so the absolute overlay
+   anchors to the image, not to the viewport.
+   `line-height: 0` removes the phantom gap below <img>.
+*/
+.img-card {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  /* Lets the card adapt to any image width */
+  max-width: 100%;
+}
+
+.img-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Overlay container ──────────────────────────────────── */
+/*
+   Fixed pixel values for bottom / left — NOT percentages.
+   This keeps the overlay visually identical regardless of
+   the image size, aspect ratio, or resolution.
+*/
+.geo-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 10;
+
+  /* Glassmorphism dark panel */
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  /* Fixed width — does NOT scale with the image */
+  max-width: 280px;
+  min-width: 188px;
+  width: max-content;
+
+  padding: 9px 13px 11px;
+  border-radius: 3px;
+
+  /* Typography */
+  font-family: 'Roboto', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+}
+
+/* ── Each label : value row ─────────────────────────────── */
+.geo-row {
+  display: flex;
+  align-items: baseline;
+  column-gap: 3px;
+  /* 1 px gap between rows — matches NoteCam spacing */
+  margin-bottom: 1px;
+}
+
+.geo-row:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Field label ────────────────────────────────────────── */
+/*
+   Fixed min-width keeps all values left-aligned in a
+   clean column regardless of label length.
+*/
+.geo-lbl {
+  flex-shrink: 0;
+  min-width: 70px;
+  font-size: inherit;
+  color: rgba(255, 255, 255, 0.90);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.geo-lbl::after {
+  content: ':';
+  margin-right: 3px;
+}
+
+/* ── Editable value field ───────────────────────────────── */
+/*
+   - Transparent background (dark box provides the bg)
+   - No border by default; subtle underline appears on hover/focus
+   - White text with shadow for readability on any photo
+   - Works as <input type="text"> or <textarea>
+*/
+.geo-val {
+  flex: 1;
+  min-width: 0;          /* prevent overflow in flex context */
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  outline: none;
+  resize: none;
+
+  color: #ffffff;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+
+  padding: 0 2px;
+  caret-color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+
+  transition:
+    border-color 0.18s ease,
+    background   0.18s ease;
+}
+
+.geo-val:hover {
+  border-bottom-color: rgba(255, 255, 255, 0.28);
+}
+
+.geo-val:focus {
+  border-bottom-color: rgba(255, 255, 255, 0.60);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Placeholder text for empty fields */
+.geo-val::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+  font-style: italic;
+}
+
+/* Note uses <textarea> — auto-grows via JS */
+.geo-val--note {
+  overflow: hidden;
+  min-height: 1.6em;
+  word-break: break-word;
+}
+
+/* ── Edit-mode toggle (optional) ────────────────────────── */
+/*
+   Add class `.geo-overlay--locked` to make all fields
+   read-only visually (pointer-events disabled, no underline).
+   Remove class to re-enable editing.
+*/
+.geo-overlay--locked .geo-val {
+  pointer-events: none;
+  border-bottom-color: transparent !important;
+  background: transparent !important;
+  cursor: default;
+}
+
+/* ── Powered-by badge (optional) ────────────────────────── */
+.geo-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 10;
+  background: rgba(220, 50, 50, 0.82);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Responsive: small screens (≤ 480 px) ───────────────── */
+@media (max-width: 480px) {
+  .geo-overlay {
+    font-size: 11px;
+    padding: 7px 10px 9px;
+    max-width: 230px;
+    min-width: 160px;
+    bottom: 6px;
+    left: 6px;
+  }
+
+  .geo-lbl {
+    min-width: 60px;
+  }
+
+  .geo-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    bottom: 6px;
+    right: 6px;
+  }
+}
+
+/* ── Responsive: very small (≤ 320 px) ─────────────────── */
+@media (max-width: 320px) {
+  .geo-overlay {
+    font-size: 10px;
+    max-width: 190px;
+    min-width: 140px;
+  }
+
+  .geo-lbl {
+    min-width: 54px;
+  }
+}
