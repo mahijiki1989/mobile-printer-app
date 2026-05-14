@@ -3,64 +3,65 @@ chcp 65001 >nul
 title Voice AI — Windows 11
 
 echo.
-echo  ╔══════════════════════════════════════════════╗
-echo  ║    🎤  Voice AI — Windows 11 Built-in       ║
-echo  ║    Hindi + English  •  No Install Needed    ║
-echo  ╚══════════════════════════════════════════════╝
+echo  ================================================
+echo    Voice AI - Windows 11
+echo    Hindi + English Voice Assistant
+echo  ================================================
+echo.
+
+:: Folder mein jaao jahan start.bat hai
+cd /d "%~dp0"
+echo  Folder: %~dp0
 echo.
 
 :: ── Python check ──────────────────────────────────────────────────────────
-python --version >nul 2>&1
+echo  [1/3] Python check...
+python --version
 if %errorlevel% neq 0 (
-    echo  ❌ Python nahi mila!
     echo.
-    echo  Python install karein:  https://www.python.org/downloads/
-    echo  Install ke waqt "Add Python to PATH" zaroor tick karein!
-    echo.
+    echo  ERROR: Python nahi mila!
+    echo  python.org se install karein aur "Add to PATH" tick karein
     pause
     exit /b 1
 )
-
-for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYVER=%%v
-echo  ✓ Python %PYVER% mila!
 echo.
 
-:: ── pip packages (sirf 2 — pehli baar ~5 seconds) ────────────────────────
-echo  [1/2] flask + flask-cors install check...
-pip install flask flask-cors --quiet --disable-pip-version-check
+:: ── pip upgrade + install ─────────────────────────────────────────────────
+echo  [2/3] Flask install ho raha hai...
+python -m pip install --upgrade pip
+python -m pip install flask flask-cors
 if %errorlevel% neq 0 (
-    echo  ❌ Install nahi hua — internet check karein.
+    echo.
+    echo  ERROR: flask install nahi hua!
+    echo  Internet connection check karein.
     pause
     exit /b 1
 )
-echo  ✓ Packages ready!
+echo.
+echo  Flask ready!
 echo.
 
-:: ── Start server ──────────────────────────────────────────────────────────
-echo  [2/2] Server start ho raha hai...
+:: ── Server start ──────────────────────────────────────────────────────────
+echo  [3/3] Server start ho raha hai...
 echo.
-echo  ══════════════════════════════════════════════
-echo   🌐  Browser mein kholein:
-echo       http://localhost:5050
+echo  ================================================
+echo   Browser mein kholein:  http://localhost:5050
 echo.
-echo   🎤  STT:  Browser Web Speech API (built-in)
-echo   🔊  TTS:  Windows PowerShell SAPI (built-in)
-echo   🤖  AI:   Python rule-based engine
+echo   SPACE  = bolna shuru / rokna
+echo   ENTER  = AI se puchein
+echo   S      = jawab sunein
 echo.
-echo   ⌨️  SPACE   = bolna shuru / rokna
-echo   ⌨️  ENTER   = AI se puchein
-echo   ⌨️  S       = jawab sunein
-echo.
-echo   🛑  Band karne ke liye:  Ctrl + C
-echo  ══════════════════════════════════════════════
+echo   Band karne ke liye: is window ko band karein
+echo   ya Ctrl+C dabayein
+echo  ================================================
 echo.
 
-:: Browser 2 second baad kholo
-start "" cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:5050"
+:: 3 second baad browser kholo
+start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:5050"
 
-:: Server chalao
-python "%~dp0voice_server.py"
+:: Server run karo
+python voice_server.py
 
 echo.
-echo  Server band ho gaya.
+echo  Server band ho gaya. Dubara chalane ke liye start.bat dabayein.
 pause

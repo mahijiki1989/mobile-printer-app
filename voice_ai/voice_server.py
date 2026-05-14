@@ -335,4 +335,4 @@ if __name__ == "__main__":
     print(f"  🌐  Browser mein kholein:  http://localhost:{port}")
     print("  🛑  Band karne ke liye:    Ctrl + C")
     print("=" * 54)
-    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
