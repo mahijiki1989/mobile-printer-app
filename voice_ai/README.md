@@ -1,135 +1,131 @@
-# 🎤 Voice AI — Hindi & English Assistant
-### Windows 11 ke liye | 100% Free | Internet ki zaroorat nahi
+# 🎤 Voice AI — Windows 11 Built-in
+### Hindi + English | 100% Free | Kuch bhi Install Nahi
 
 ---
 
-## ✨ Kya karta hai yeh?
+## ✨ Yeh Kya Hai?
 
-| Feature | Detail |
-|---------|--------|
-| 🎙️ **Aawaz sunega** | Microphone se bolein — Hindi ya English, dono |
-| ⏱️ **Lamba sun sakta hai** | Bina kisi time limit ke — jitna chahe bolein |
-| 📝 **Text mein likhega** | Jo bola, woh screen par likh dega |
-| 🤖 **AI jawab dega** | Local AI (Ollama+LLaMA3) se smart reply |
-| 🔊 **Bol bhi sakta hai** | AI ka jawab awaaz mein sun sakte hain |
-| 🔒 **Poora offline** | Koi data internet par nahi jata |
+Aapke Windows 11 laptop ke liye ek Voice Assistant — jo **sirf browser aur Python** se chalta hai.
 
----
+| Kaam | Kaise |
+|------|-------|
+| 🎤 Aawaz sunega | Browser ka built-in **Web Speech API** |
+| 📝 Text likhega | Automatic — real-time screen par |
+| 🤖 Jawab dega | Python ka simple AI engine |
+| 🔊 Bol ke sunayega | Windows ka built-in **SAPI TTS** |
+| 🔒 Data safe | Koi data internet par nahi jata |
 
-## 📋 Zaroori Cheezein (Ek Baar)
-
-### 1. Python Install Karein
-👉 https://www.python.org/downloads/
-
-> ⚠️ **Zaroori:** Install karte waqt **"Add Python to PATH"** ka checkbox zaroor tick karein!
-
-### 2. Ollama Install Karein (Free AI Engine)
-👉 https://ollama.com/download
-
-> Ollama ek free, local AI tool hai. Koi account nahi chahiye.
+> **Koi Ollama nahi, koi model download nahi, koi API key nahi!**
 
 ---
 
-## 🚀 Pehli Baar Setup (Sirf Ek Baar)
+## 📋 Sirf Ek Cheez Chahiye
 
-1. `voice_ai` folder mein jaayein
-2. **`setup.bat`** par double-click karein
-3. Wait karein — sab kuch automatic install ho jaayega
-4. (~5-10 min lagenge, internet speed pe depend karta hai)
+### Python 3.8+
+👉 **https://www.python.org/downloads/**
+
+> ⚠️ Install karte waqt **"Add Python to PATH"** ka tick **zaroor** lagayein!
 
 ---
 
-## ▶️ Roz Use Karne Ke Liye
+## ▶️ Chalane Ka Tarika
 
-1. **`start.bat`** par double-click karein
-2. Browser automatically khulega: `http://localhost:5050`
-3. **Bas bolein!** 🎤
+```
+1.  voice_ai  folder mein jaayein
+2.  start.bat  par double-click karein
+3.  Browser apne aap khuleg: http://localhost:5050
+4.  🎤 Boliye!
+```
+
+**Bas itna hi!** (pehli baar 3 packages ~10 seconds mein install honge)
 
 ---
 
 ## 🎮 Kaise Use Karein
 
 ```
-🎤 [बोलें] button dabayein
-        ↓
-    Bolna shuru karein (Hindi ya English)
-        ↓
-🛑 [रोकें] button dabayein (recording rukegi)
-        ↓
-📝 Aapki baat screen par likh jayegi
-        ↓
-🤖 [AI से पूछें] dabayein — AI jawab dega
-        ↓
-🔊 [सुनें] dabayein — AI ka jawab awaaz mein sunein
+Step 1:  🎤 [बोलें] button dabayein
+Step 2:  Bolna shuru karein — Hindi ya English
+Step 3:  Aapki baat screen par live likhti jayegi
+Step 4:  [रोकें] dabayein — baat poori ho gayi
+Step 5:  🤖 [AI से पूछें] dabayein — jawab aayega
+Step 6:  🔊 [सुनें] dabayein — jawab awaaz mein sunein
 ```
 
 ### ⌨️ Keyboard Shortcuts
+
 | Key | Kaam |
 |-----|------|
-| `SPACE` | Recording start / stop |
-| `ENTER` | AI se puchein |
+| `SPACE` | Recording shuru karo / roko |
+| `ENTER` | AI se jawab maango |
+| `S` | Jawab awaaz mein sunein |
 
 ---
 
-## 📁 Files Ki Jankari
+## 🤖 AI Kya Kya Kar Sakta Hai?
+
+| Bolo | Jawab milega |
+|------|-------------|
+| "Namaste" / "नमस्ते" | Good Morning/Evening greeting |
+| "Kitne baje hain?" | Abhi ka time |
+| "Aaj ki date kya hai?" | Aaj ki date aur din |
+| "Koi joke sunao" | Hindi ya English joke |
+| "15 times 8 kya hai?" | 120 ✓ |
+| "25 plus 37?" | 62 ✓ |
+| "Help" | Poori capabilities list |
+| "Bye" / "Alvida" | Farewell |
+
+---
+
+## ❓ Problems aur Solutions
+
+### ❌ "Microphone blocked" error
+> Browser address bar mein **🔒 lock icon** click karein  
+> → **Microphone = Allow** karein → Page refresh karein
+
+### ❌ "Web Speech API supported nahi"
+> **Microsoft Edge** ya **Google Chrome** mein kholein  
+> Firefox support nahi karta
+
+### ❌ Server start nahi hua
+> `voice_ai` **folder ke andar se** `start.bat` chalayein  
+> Bahar se chalane par path error aata hai
+
+### ❌ Python nahi mila
+> https://www.python.org/downloads/ se install karein  
+> **"Add Python to PATH"** tick karna mat bhulen!
+
+### 🔇 Awaaz nahi aa rahi
+> Browser mein `http://localhost:5050` kholein  
+> (HTTPS nahi, HTTP — localhost pe TLS nahi chahiye)
+
+---
+
+## 📁 Files
 
 ```
 voice_ai/
-├── voice_server.py      ← Main Python server (brain)
-├── requirements.txt     ← Python packages list
-├── setup.bat            ← Pehli baar chalayein
-├── start.bat            ← Roz chalayein
+├── start.bat          ← ▶ Yahi chalana hai (double-click)
+├── voice_server.py    ← Python server (brain)
+├── requirements.txt   ← 3 packages ki list
+├── README.md          ← Yeh file
 └── static/
-    ├── index.html       ← UI (browser mein dikhta hai)
-    ├── style.css        ← Design / styling
-    └── app.js           ← Browser ka logic
+    ├── index.html     ← Browser UI
+    ├── style.css      ← Design
+    └── app.js         ← Voice recording + TTS logic
 ```
 
 ---
 
-## ❓ Problems & Solutions
+## 🛠️ Technical
 
-### ❌ "Microphone access nahi mila"
-> Browser mein `http://localhost:5050` kholein (HTTPS nahi, HTTP).  
-> Chrome/Edge mein localhost ke liye microphone automatically allow hota hai.
-
-### ❌ "Ollama se connect nahi ho saka"
-> 1. Ollama install hai? → https://ollama.com/download  
-> 2. Terminal mein chalayein: `ollama run llama3`  
-> 3. Pehli baar 4-5 GB download hoga — wait karein
-
-### ❌ "Python nahi mila" error
-> Python install karein: https://www.python.org/downloads/  
-> **"Add to PATH"** zaroor tick karein!
-
-### ❌ Server start nahi ho raha
-> `voice_ai` folder ke andar se `start.bat` chalayein, bahar se nahi.
-
-### 🐌 "Pehli baar slow hai"
-> Bilkul normal hai! Whisper model (~150MB) pehli baar load hone mein  
-> 30-60 second lagते hain. Doosri baar se fast hoga.
+| Part | Technology | Kyu? |
+|------|-----------|------|
+| Speech-to-Text | `Web Speech API` (browser built-in) | Windows 11 mein pehle se hai |
+| AI Response | Python rule-based engine | Koi model nahi, zero install |
+| Text-to-Speech | `SpeechSynthesis` (browser) + Windows SAPI | Built-in, offline |
+| Server | `Flask` (Python) | Sirf 3 packages |
 
 ---
 
-## 🛠️ Technical Details
-
-| Component | Tool | Kyu? |
-|-----------|------|------|
-| Speech-to-Text | `faster-whisper` (Whisper base model) | Free, offline, Hindi+English support |
-| AI Brain | `Ollama + LLaMA3` | Free, local, no data leaves laptop |
-| Text-to-Speech | `pyttsx3` (Windows SAPI) | Built-in Windows voices, offline |
-| Web Server | `Flask` | Lightweight Python server |
-| Frontend | HTML + CSS + JS | Browser mein chalta hai, koi install nahi |
-
----
-
-## 💡 Tips
-
-- **Saaf jagah mein bolein** — background noise kam ho toh accuracy zyada hogi
-- **Lamba bolein** — ek baar mein poora sentence bolein, bich mein ruke nahi
-- **Conversation yaad rakhta hai** — AI pichli baatein yaad rakhta hai (10 messages tak)
-- **Clear button** — nayi baat shuru karni ho toh 🗑️ Clear dabayein
-
----
-
-*Made with ❤️ | 100% Free & Local | No data leaves your laptop*
+*Made for Windows 11 | 100% Free | No Ollama | No Whisper | No API Key*

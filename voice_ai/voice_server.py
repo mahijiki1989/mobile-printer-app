@@ -1,244 +1,306 @@
 """
-Voice AI Server - Windows 11
-Hindi + English speech recognition with AI responses
-100% Free & Local
+Voice AI Server — voice_server.py
+Windows 11 Built-in Only — Zero Extra Install
+
+Kya karta hai:
+  /          → index.html serve karta hai (browser UI)
+  /ask       → AI jaisi simple responses deta hai (Python built-in only)
+  /speak     → Windows SAPI (pyttsx3) se TTS — browser TTS ka backup
+  /status    → health check
+
+Zaroorat:  Python 3.8+  +  flask  +  flask-cors  +  pyttsx3
+           (sirf yeh 3 packages — pip se install hote hain, koi bada model nahi)
 """
 
 import os
-import io
+import re
 import json
 import threading
-import tempfile
-import subprocess
-import time
-
+import datetime
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-# ── App Setup ─────────────────────────────────────────────────────────────────
-app = Flask(__name__, static_folder="static")
+# ── App ───────────────────────────────────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "static"))
 CORS(app)
 
-# ── Global: Whisper model (lazy load) ────────────────────────────────────────
-_whisper_model = None
-_model_lock = threading.Lock()
+# ── TTS engine (lazy init — Windows SAPI) ─────────────────────────────────────
+_tts_lock   = threading.Lock()
+_tts_engine = None
 
-def get_whisper_model():
-    """Load Whisper model once, reuse every time."""
-    global _whisper_model
-    with _model_lock:
-        if _whisper_model is None:
-            print("[Voice AI] Loading Whisper model (first time, please wait)...")
-            from faster_whisper import WhisperModel
-            # 'base' is fast & good for Hindi+English; change to 'small' for better accuracy
-            _whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
-            print("[Voice AI] Whisper model loaded ✓")
-    return _whisper_model
-
+def get_tts():
+    global _tts_engine
+    with _tts_lock:
+        if _tts_engine is None:
+            import pyttsx3
+            _tts_engine = pyttsx3.init()
+            _tts_engine.setProperty("rate", 155)
+            _tts_engine.setProperty("volume", 1.0)
+            # Windows Hindi voice prefer karein agar available ho
+            voices = _tts_engine.getProperty("voices")
+            for v in voices:
+                if "hindi" in v.name.lower() or "heera" in v.name.lower():
+                    _tts_engine.setProperty("voice", v.id)
+                    break
+    return _tts_engine
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    return send_from_directory(app.static_folder, "index.html")
 
-
-@app.route("/transcribe", methods=["POST"])
-def transcribe():
-    """
-    Accepts audio file (WAV/WebM/MP3) from browser,
-    runs Whisper STT, returns transcript.
-    """
-    if "audio" not in request.files:
-        return jsonify({"error": "No audio file provided"}), 400
-
-    audio_file = request.files["audio"]
-
-    # Save to temp file
-    suffix = ".webm"
-    if audio_file.filename:
-        ext = os.path.splitext(audio_file.filename)[-1].lower()
-        if ext in [".wav", ".mp3", ".ogg", ".m4a", ".webm"]:
-            suffix = ext
-
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        audio_file.save(tmp.name)
-        tmp_path = tmp.name
-
-    try:
-        model = get_whisper_model()
-        # language=None → auto-detect Hindi or English
-        segments, info = model.transcribe(
-            tmp_path,
-            language=None,          # auto-detect
-            task="transcribe",      # keep original language (not translate)
-            beam_size=5,
-            vad_filter=True,        # remove silence automatically
-            vad_parameters=dict(min_silence_duration_ms=500),
-        )
-
-        transcript = " ".join(seg.text.strip() for seg in segments)
-        detected_lang = info.language
-
-        return jsonify({
-            "transcript": transcript,
-            "language": detected_lang,
-            "success": True
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e), "success": False}), 500
-
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass
+@app.route("/<path:filename>")
+def static_files(filename):
+    return send_from_directory(app.static_folder, filename)
 
 
 @app.route("/ask", methods=["POST"])
-def ask_ai():
+def ask():
     """
-    Send transcript text to Ollama (local LLM) and get AI response.
-    Falls back to a helpful message if Ollama is not running.
+    Simple rule-based AI responses — Windows built-in Python only.
+    No model, no API key, no internet needed for this part.
+    Browser ka Web Speech API speech-to-text handle karta hai,
+    yeh sirf text response deta hai.
     """
-    data = request.get_json()
-    if not data or "text" not in data:
-        return jsonify({"error": "No text provided"}), 400
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    history = data.get("history") or []
 
-    user_text = data["text"].strip()
-    conversation_history = data.get("history", [])
+    if not text:
+        return jsonify({"response": "Kuch bola nahi gaya.", "success": False})
 
-    try:
-        response_text = call_ollama(user_text, conversation_history)
-        return jsonify({
-            "response": response_text,
-            "success": True
-        })
-    except Exception as e:
-        return jsonify({
-            "response": f"Ollama se connect nahi ho saka. Error: {str(e)}\n\nOllama install karein: https://ollama.com  Phir terminal mein chalayein: ollama run llama3",
-            "success": False
-        })
+    response = generate_response(text, history)
+    return jsonify({"response": response, "success": True})
 
 
 @app.route("/speak", methods=["POST"])
 def speak():
     """
-    Text-to-Speech using pyttsx3 (Windows SAPI, offline).
-    Plays audio directly on the server machine (your laptop).
+    Windows SAPI TTS — browser SpeechSynthesis ka backup.
+    Laptop ke speakers par seedha bolega.
     """
-    data = request.get_json()
-    if not data or "text" not in data:
-        return jsonify({"error": "No text provided"}), 400
-
-    text = data["text"].strip()
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
     if not text:
-        return jsonify({"success": True, "message": "Empty text"})
-
-    try:
-        # Run TTS in a separate thread so it doesn't block the request
-        tts_thread = threading.Thread(target=_speak_text, args=(text,), daemon=True)
-        tts_thread.start()
         return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"error": str(e), "success": False}), 500
 
+    def _run():
+        try:
+            engine = get_tts()
+            with _tts_lock:
+                engine.say(text)
+                engine.runAndWait()
+        except Exception as e:
+            print(f"[TTS] Error: {e}")
 
-def _speak_text(text: str):
-    """Internal: speak text using pyttsx3."""
-    try:
-        import pyttsx3
-        engine = pyttsx3.init()
-        # Adjust speed (default ~200, lower = slower)
-        engine.setProperty("rate", 160)
-        engine.setProperty("volume", 1.0)
-        engine.say(text)
-        engine.runAndWait()
-        engine.stop()
-    except Exception as e:
-        print(f"[TTS Error] {e}")
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"success": True})
 
 
 @app.route("/status", methods=["GET"])
 def status():
-    """Check if Ollama is running."""
-    ollama_ok = False
-    try:
-        import urllib.request
-        urllib.request.urlopen("http://localhost:11434", timeout=2)
-        ollama_ok = True
-    except Exception:
-        pass
-
-    return jsonify({
-        "server": "running",
-        "ollama": ollama_ok,
-        "whisper_loaded": _whisper_model is not None
-    })
+    return jsonify({"server": "running", "tts": "windows-sapi", "stt": "web-speech-api"})
 
 
-# ── Ollama Helper ─────────────────────────────────────────────────────────────
+# ── Response Generator (Pure Python — No Model) ───────────────────────────────
 
-def call_ollama(user_text: str, history: list) -> str:
-    """Call local Ollama API with conversation history."""
-    import urllib.request
-    import json
+# Simple knowledge base — expandable
+GREETINGS = {"नमस्ते", "hello", "hi", "hey", "helo", "namaste", "namaskar",
+             "namasté", "नमस्कार", "हैलो", "हाय"}
 
-    # Build messages
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "Aap ek helpful AI assistant hain jo Hindi aur English dono mein "
-                "baat kar sakte hain. User jo bhi bhasha bole, usi mein jawab dein. "
-                "Apne jawab clear aur helpful rakhen. Agar user Hindi mein bole toh "
-                "Hindi mein jawab dein, agar English mein bole toh English mein."
-            )
-        }
-    ]
+TIME_WORDS = {"time", "समय", "baje", "kitne baje", "कितने बजे", "what time"}
+DATE_WORDS = {"date", "तारीख", "aaj", "आज", "today", "din", "दिन", "kya din"}
 
-    # Add conversation history (last 10 messages to keep context)
-    for msg in history[-10:]:
-        messages.append(msg)
+WEATHER_WORDS = {"weather", "mausam", "मौसम", "garmi", "गर्मी", "sardi", "सर्दी"}
 
-    # Add current user message
-    messages.append({"role": "user", "content": user_text})
+THANKS_WORDS = {"thanks", "thank you", "shukriya", "शुक्रिया", "dhanyavaad",
+                "धन्यवाद", "thx", "ty"}
 
-    payload = json.dumps({
-        "model": "llama3",
-        "messages": messages,
-        "stream": False,
-        "options": {
-            "temperature": 0.7,
-            "num_predict": 500,
-        }
-    }).encode("utf-8")
+BYE_WORDS = {"bye", "goodbye", "alvida", "अलविदा", "baad mein milte hain",
+             "ok bye", "band karo"}
 
-    req = urllib.request.Request(
-        "http://localhost:11434/api/chat",
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
+HELP_WORDS = {"help", "madad", "मदद", "kya kar sakte", "क्या कर सकते",
+              "kya karte", "commands"}
 
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        result = json.loads(resp.read().decode("utf-8"))
-        return result["message"]["content"]
+JOKES_WORDS = {"joke", "mazak", "मज़ाक", "hasao", "hasana", "funny", "comedy"}
+
+JOKES_HI = [
+    "एक आदमी doctor के पास गया।\nDoctor: क्या हुआ?\nआदमी: मुझे लगता है मैं अदृश्य हूँ।\nDoctor: अगला patient आ जाए! 😂",
+    "Teacher: बताओ पानी कहाँ से आता है?\nStudent: नल से!\nTeacher: नल से पहले?\nStudent: टंकी से!\nTeacher: (सिर पकड़ लेते हैं) 😄",
+    "मेरी memory इतनी कमज़ोर है...\nकि मैंने कल gym join किया\nआज याद ही नहीं रहा! 💪😂",
+]
+
+JOKES_EN = [
+    "Why don't scientists trust atoms?\nBecause they make up everything! 😂",
+    "I told my computer I needed a break.\nNow it won't stop sending me Kit-Kat ads. 😄",
+    "Why did the programmer quit his job?\nBecause he didn't get arrays (a raise)! 😂",
+]
+
+_joke_idx_hi = 0
+_joke_idx_en = 0
+
+CAPABILITIES = """मैं यह कर सकता हूँ:
+• 🕐 **समय और तारीख** बताना
+• 😄 **Jokes** सुनाना  
+• 💬 **हिंदी और English** में बात करना
+• 🔢 **गणित** के सवाल हल करना
+• 📝 **आपकी बात** repeat करना
+• 🔊 **जवाब बोलकर** सुनाना
+
+बस बोलिए — मैं हाज़िर हूँ! 😊"""
+
+MATH_PATTERN = re.compile(
+    r'(\d+\.?\d*)\s*([\+\-\×\*\/÷x]|plus|minus|times|divided by|गुणा|जमा|घटा|भाग)\s*(\d+\.?\d*)',
+    re.IGNORECASE
+)
+
+
+def generate_response(text: str, history: list) -> str:
+    """Rule-based response engine — expandable, no model needed."""
+    global _joke_idx_hi, _joke_idx_en
+
+    t_lower = text.lower().strip()
+    words   = set(re.split(r'[\s,।?!।]+', t_lower))
+
+    # ── Greeting ──────────────────────────────────────────────────────────────
+    if words & GREETINGS:
+        hour = datetime.datetime.now().hour
+        if 5 <= hour < 12:
+            greeting = "सुप्रभात! Good Morning! ☀️"
+        elif 12 <= hour < 17:
+            greeting = "नमस्ते! Good Afternoon! 🌤️"
+        elif 17 <= hour < 21:
+            greeting = "शुभ संध्या! Good Evening! 🌇"
+        else:
+            greeting = "नमस्ते! Good Night! 🌙"
+        return f"{greeting}\n\nमैं आपका Voice AI हूँ। आप मुझसे कुछ भी पूछ सकते हैं!\nHelp के लिए 'help' बोलें।"
+
+    # ── Time ──────────────────────────────────────────────────────────────────
+    if any(w in t_lower for w in TIME_WORDS):
+        now = datetime.datetime.now()
+        time_str = now.strftime("%I:%M %p")
+        return f"अभी समय है: **{time_str}** 🕐\n({now.strftime('%H:%M')} बजे)"
+
+    # ── Date ──────────────────────────────────────────────────────────────────
+    if any(w in t_lower for w in DATE_WORDS):
+        now = datetime.datetime.now()
+        days_hi = ["सोमवार","मंगलवार","बुधवार","गुरुवार","शुक्रवार","शनिवार","रविवार"]
+        months_hi = ["जनवरी","फ़रवरी","मार्च","अप्रैल","मई","जून",
+                     "जुलाई","अगस्त","सितंबर","अक्टूबर","नवंबर","दिसंबर"]
+        day_name  = days_hi[now.weekday()]
+        month_name= months_hi[now.month - 1]
+        return (
+            f"आज की तारीख: **{now.day} {month_name} {now.year}**\n"
+            f"दिन: {day_name} ({now.strftime('%A')})"
+        )
+
+    # ── Weather ───────────────────────────────────────────────────────────────
+    if any(w in t_lower for w in WEATHER_WORDS):
+        return (
+            "मुझे internet access नहीं है, इसलिए live मौसम नहीं बता सकता। 🌤️\n\n"
+            "मौसम के लिए:\n"
+            "• Edge में **weather.com** खोलें\n"
+            "• या Windows taskbar में weather widget देखें"
+        )
+
+    # ── Thanks ────────────────────────────────────────────────────────────────
+    if words & THANKS_WORDS:
+        return "आपका स्वागत है! 😊\nकोई भी काम हो, बस बोलिए।"
+
+    # ── Bye ───────────────────────────────────────────────────────────────────
+    if words & BYE_WORDS:
+        return "अलविदा! फिर मिलेंगे। 👋\nखिड़की बंद कर सकते हैं।"
+
+    # ── Help ──────────────────────────────────────────────────────────────────
+    if words & HELP_WORDS:
+        return CAPABILITIES
+
+    # ── Jokes ─────────────────────────────────────────────────────────────────
+    if words & JOKES_WORDS:
+        # Detect language from text
+        hindi_chars = sum(1 for c in text if '\u0900' <= c <= '\u097f')
+        if hindi_chars > 2:
+            joke = JOKES_HI[_joke_idx_hi % len(JOKES_HI)]
+            _joke_idx_hi += 1
+        else:
+            joke = JOKES_EN[_joke_idx_en % len(JOKES_EN)]
+            _joke_idx_en += 1
+        return joke
+
+    # ── Math ──────────────────────────────────────────────────────────────────
+    match = MATH_PATTERN.search(t_lower)
+    if match:
+        try:
+            a   = float(match.group(1))
+            op  = match.group(2).strip().lower()
+            b   = float(match.group(3))
+            op_map = {
+                '+': a + b, 'plus': a + b, 'जमा': a + b,
+                '-': a - b, 'minus': a - b, 'घटा': a - b,
+                '*': a * b, '×': a * b, 'x': a * b, 'times': a * b, 'गुणा': a * b,
+                '/': None,  '÷': None, 'divided by': None, 'भाग': None,
+            }
+            if op in ('/', '÷', 'divided by', 'भाग'):
+                if b == 0:
+                    return "शून्य से भाग नहीं होता! 😅"
+                result = a / b
+            else:
+                result = op_map.get(op)
+                if result is None:
+                    return "यह operator समझ नहीं आया।"
+
+            # Clean output: remove trailing .0 if integer
+            result_str = str(int(result)) if result == int(result) else f"{result:.4f}".rstrip('0').rstrip('.')
+            return f"{match.group(1)} {match.group(2)} {match.group(3)} = **{result_str}** 🔢"
+        except Exception:
+            pass
+
+    # ── Name questions ────────────────────────────────────────────────────────
+    if any(w in t_lower for w in ["naam", "name", "नाम", "kaun", "कौन", "who are you", "tum kaun"]):
+        return "मेरा नाम **Voice AI** है। 🤖\nमैं आपका Windows 11 built-in assistant हूँ।\nकोई install नहीं — सब browser में ही चलता है!"
+
+    # ── How are you ───────────────────────────────────────────────────────────
+    if any(w in t_lower for w in ["kaisa", "kaisi", "कैसे", "how are you", "theek", "ठीक"]):
+        return "मैं बिल्कुल ठीक हूँ, शुक्रिया! 😊\nआप कैसे हैं? कुछ पूछना हो तो बोलिए।"
+
+    # ── Repeat / echo ─────────────────────────────────────────────────────────
+    if any(w in t_lower for w in ["repeat", "dobara", "दोबारा", "phir", "फिर बोलो"]):
+        # Find last user message from history
+        for msg in reversed(history):
+            if msg.get("role") == "user":
+                return f"आपने कहा था:\n\"{msg['content']}\""
+        return "आपने अभी तक कुछ नहीं कहा। पहले कुछ बोलिए!"
+
+    # ── Fallback — Echo + hint ────────────────────────────────────────────────
+    hindi_chars = sum(1 for c in text if '\u0900' <= c <= '\u097f')
+    if hindi_chars > 3:
+        return (
+            f"आपने कहा: \"{text}\"\n\n"
+            "मैं अभी सीमित हूँ — बड़ा AI (जैसे ChatGPT) नहीं हूँ।\n"
+            "लेकिन मैं यह कर सकता हूँ:\n"
+            "• समय/तारीख बताना\n"
+            "• Jokes सुनाना\n"
+            "• Maths हल करना\n"
+            "'Help' बोलें — पूरी list देखें!"
+        )
+    else:
+        return (
+            f"You said: \"{text}\"\n\n"
+            "I'm a simple built-in assistant (no big AI model).\n"
+            "I can: tell time/date, crack jokes, solve math.\n"
+            "Say 'help' to see what I can do!"
+        )
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
-    print("=" * 55)
-    print("  🎤  Voice AI Server - Hindi + English")
-    print("=" * 55)
-    print("  Server:  http://localhost:5050")
-    print("  Browser mein yeh link kholein!")
-    print("=" * 55)
-
-    # Pre-load whisper model in background
-    preload_thread = threading.Thread(target=get_whisper_model, daemon=True)
-    preload_thread.start()
-
-    app.run(host="0.0.0.0", port=5050, debug=False, threaded=True)
+    port = 5050
+    print("=" * 54)
+    print("  🎤  Voice AI Server — Windows 11 Built-in")
+    print("=" * 54)
+    print(f"  🌐  Browser mein kholein:  http://localhost:{port}")
+    print("  🛑  Band karne ke liye:    Ctrl + C")
+    print("=" * 54)
+    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)

@@ -1,265 +1,339 @@
 /**
- * Voice AI - app.js
- * Hindi + English Voice Assistant
- * Records audio → sends to server → Whisper STT → Ollama AI → shows text
+ * Voice AI — app.js
+ * Uses ONLY Windows 11 / Browser built-in APIs:
+ *   • SpeechRecognition  → Web Speech API (Chrome/Edge built-in)
+ *   • SpeechSynthesis    → Browser TTS (Windows SAPI voices)
+ *   • Flask backend      → sirf TTS fallback ke liye (optional)
+ *
+ * Koi install nahi — sirf Python + Edge/Chrome browser chahiye
  */
 
-const API = "http://localhost:5050";
+'use strict';
 
-// ── DOM Elements ──────────────────────────────────────────────────────────────
-const micBtn         = document.getElementById("micBtn");
-const micIcon        = document.getElementById("micIcon");
-const micLabel       = document.getElementById("micLabel");
-const micRings       = document.getElementById("micRings");
-const sendBtn        = document.getElementById("sendBtn");
-const speakBtn       = document.getElementById("speakBtn");
-const clearBtn       = document.getElementById("clearBtn");
-const chatWindow     = document.getElementById("chatWindow");
-const welcomeMsg     = document.getElementById("welcomeMsg");
-const transcriptBox  = document.getElementById("transcriptBox");
-const transcriptText = document.getElementById("transcriptText");
-const copyTranscript = document.getElementById("copyTranscript");
-const ollamaStatus   = document.getElementById("ollamaStatus");
-const ollamaLabel    = document.getElementById("ollamaLabel");
-const timer          = document.getElementById("timer");
-const timerDisplay   = document.getElementById("timerDisplay");
+// ── Config ────────────────────────────────────────────────────────────────────
+const SERVER = 'http://localhost:5050';   // Python Flask server
+let currentLang = 'hi-IN';               // default: Hindi
+
+// ── DOM refs ──────────────────────────────────────────────────────────────────
+const micBtn       = document.getElementById('micBtn');
+const micIcon      = document.getElementById('micIcon');
+const micLabel     = document.getElementById('micLabel');
+const micRing      = document.getElementById('micRing');
+const sendBtn      = document.getElementById('sendBtn');
+const speakBtn     = document.getElementById('speakBtn');
+const stopSpeakBtn = document.getElementById('stopSpeakBtn');
+const chatWindow   = document.getElementById('chatWindow');
+const welcomeCard  = document.getElementById('welcomeCard');
+const liveText     = document.getElementById('liveText');
+const transcriptBar= document.getElementById('transcriptBar');
+const copyBtn      = document.getElementById('copyBtn');
+const statusDot    = document.getElementById('statusDot');
+const statusLabel  = document.getElementById('statusLabel');
+const btnHi        = document.getElementById('btnHi');
+const btnEn        = document.getElementById('btnEn');
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let mediaRecorder   = null;
-let audioChunks     = [];
-let isRecording     = false;
-let recordingTimer  = null;
-let recordingSeconds = 0;
-let currentTranscript = "";
-let lastAIResponse  = "";
-let conversationHistory = [];  // {role, content}[]
+let recognition       = null;   // SpeechRecognition instance
+let isListening       = false;
+let finalTranscript   = '';     // confirmed text
+let interimTranscript = '';     // live in-progress text
+let lastAIResponse    = '';
+let isSpeaking        = false;
+let history           = [];     // [{role, content}]  conversation memory
 
-// ── Status Check ──────────────────────────────────────────────────────────────
-async function checkStatus() {
-  try {
-    const res = await fetch(`${API}/status`);
-    const data = await res.json();
-    if (data.ollama) {
-      ollamaStatus.className = "status-dot online";
-      ollamaLabel.textContent = "Ollama चालू है ✓";
-    } else {
-      ollamaStatus.className = "status-dot offline";
-      ollamaLabel.textContent = "Ollama बंद है";
+// ── Speech Recognition Setup ──────────────────────────────────────────────────
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+  setStatus('⚠️ Edge/Chrome mein kholein', 'warn');
+  micBtn.disabled = true;
+  micLabel.textContent = 'Unsupported';
+  alert(
+    '❌ Yeh browser Speech Recognition support nahi karta.\n\n' +
+    'Microsoft Edge ya Google Chrome mein kholein:\n' +
+    'http://localhost:5050'
+  );
+}
+
+function buildRecognition() {
+  const r = new SpeechRecognition();
+  r.lang           = currentLang;
+  r.interimResults = true;   // live text dikhana
+  r.maxAlternatives = 1;
+  r.continuous     = true;   // ruke nahi — jab tak stop na karein
+
+  r.onstart = () => {
+    isListening = true;
+    setMicState(true);
+    setStatus('🎙️ Sun raha hoon...', 'listening');
+    liveText.textContent = 'बोलते रहें...';
+    transcriptBar.classList.add('active');
+    copyBtn.style.display = 'none';
+    finalTranscript = '';
+    interimTranscript = '';
+  };
+
+  r.onresult = (e) => {
+    interimTranscript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        finalTranscript += t + ' ';
+      } else {
+        interimTranscript += t;
+      }
     }
-  } catch {
-    ollamaStatus.className = "status-dot offline";
-    ollamaLabel.textContent = "Server से connect नहीं";
-  }
+    // Show live: final (bold) + interim (muted)
+    liveText.innerHTML =
+      '<strong>' + escHtml(finalTranscript) + '</strong>' +
+      '<span style="opacity:0.55">' + escHtml(interimTranscript) + '</span>';
+  };
+
+  r.onerror = (e) => {
+    console.error('SpeechRecognition error:', e.error);
+    if (e.error === 'not-allowed') {
+      setStatus('❌ Microphone blocked', 'error');
+      alert(
+        '❌ Microphone access nahi mila!\n\n' +
+        'Browser address bar mein lock icon click karke\n' +
+        'Microphone = Allow karein, phir page refresh karein.'
+      );
+    } else if (e.error === 'network') {
+      setStatus('⚠️ Network error (Edge offline mode try karein)', 'warn');
+    } else if (e.error === 'no-speech') {
+      setStatus('🤔 Koi awaaz nahi aayi, dobara koshish karein', 'warn');
+    } else {
+      setStatus('⚠️ ' + e.error, 'warn');
+    }
+    stopListening();
+  };
+
+  r.onend = () => {
+    // agar manual stop nahi ki to auto-restart (continuous stay)
+    if (isListening) {
+      try { r.start(); } catch (_) {}
+    } else {
+      onRecordingFinished();
+    }
+  };
+
+  return r;
 }
 
-// Check status every 10 seconds
-checkStatus();
-setInterval(checkStatus, 10000);
-
-// ── Recording ─────────────────────────────────────────────────────────────────
-micBtn.addEventListener("click", () => {
-  if (isRecording) {
-    stopRecording();
+// ── Start / Stop Recording ────────────────────────────────────────────────────
+function toggleRecording() {
+  if (isListening) {
+    stopListening();
   } else {
-    startRecording();
+    startListening();
   }
-});
+}
 
-async function startRecording() {
+function startListening() {
+  if (!SpeechRecognition) return;
+  finalTranscript   = '';
+  interimTranscript = '';
+  recognition = buildRecognition();
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    // Prefer webm/opus, fallback to default
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : "audio/webm";
-
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-    audioChunks = [];
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      await processAudio();
-    };
-
-    mediaRecorder.start(200); // collect chunks every 200ms
-    isRecording = true;
-
-    // Update UI
-    micBtn.classList.add("recording");
-    micIcon.className = "fa-solid fa-stop";
-    micLabel.textContent = "रोकें";
-    micRings.classList.add("active");
-
-    // Start timer
-    recordingSeconds = 0;
-    timer.style.display = "flex";
-    updateTimer();
-    recordingTimer = setInterval(updateTimer, 1000);
-
-    // Update transcript box
-    transcriptText.textContent = "🎙️ सुन रहे हैं... बोलते रहें";
-    transcriptBox.classList.add("active");
-    copyTranscript.style.display = "none";
-
+    recognition.start();
   } catch (err) {
-    alert("Microphone access nahi mila!\n\nBrowser mein microphone permission dein.\n\nError: " + err.message);
+    console.error(err);
+    setStatus('❌ Mic shuru nahi hua', 'error');
   }
 }
 
-function stopRecording() {
-  if (mediaRecorder && isRecording) {
-    mediaRecorder.stop();
-    isRecording = false;
-
-    // Reset UI
-    micBtn.classList.remove("recording");
-    micIcon.className = "fa-solid fa-microphone";
-    micLabel.textContent = "बोलें";
-    micRings.classList.remove("active");
-
-    // Stop timer
-    clearInterval(recordingTimer);
-    timer.style.display = "none";
-
-    transcriptText.textContent = "⏳ Audio process हो रहा है...";
+function stopListening() {
+  isListening = false;
+  if (recognition) {
+    try { recognition.stop(); } catch (_) {}
   }
+  setMicState(false);
 }
 
-function updateTimer() {
-  recordingSeconds++;
-  const m = Math.floor(recordingSeconds / 60);
-  const s = recordingSeconds % 60;
-  timerDisplay.textContent = `${m}:${s.toString().padStart(2, "0")}`;
-}
+function onRecordingFinished() {
+  const text = (finalTranscript + interimTranscript).trim();
 
-// ── Process Audio → Transcribe ────────────────────────────────────────────────
-async function processAudio() {
-  const blob = new Blob(audioChunks, { type: "audio/webm" });
-
-  if (blob.size < 1000) {
-    transcriptText.textContent = "कोई आवाज़ नहीं मिली। फिर कोशिश करें।";
-    transcriptBox.classList.remove("active");
+  if (!text) {
+    liveText.textContent = 'कोई आवाज़ नहीं मिली — फिर कोशिश करें';
+    transcriptBar.classList.remove('active');
+    setStatus('तैयार है', 'idle');
     return;
   }
 
-  const formData = new FormData();
-  formData.append("audio", blob, "recording.webm");
-
-  try {
-    const res = await fetch(`${API}/transcribe`, {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (data.success && data.transcript.trim()) {
-      currentTranscript = data.transcript.trim();
-      const langEmoji = getLangEmoji(data.language);
-
-      transcriptText.textContent = `${langEmoji} ${currentTranscript}`;
-      transcriptBox.classList.add("active");
-      copyTranscript.style.display = "inline-flex";
-
-      sendBtn.disabled = false;
-    } else {
-      transcriptText.textContent = "समझ नहीं आया। ज़ोर से बोलकर फिर कोशिश करें।";
-      transcriptBox.classList.remove("active");
-      currentTranscript = "";
-    }
-  } catch (err) {
-    transcriptText.textContent = "Server से connect नहीं हो सका। server चालू है?";
-    transcriptBox.classList.remove("active");
-    currentTranscript = "";
-  }
+  finalTranscript = text;
+  liveText.innerHTML = '<strong>' + escHtml(text) + '</strong>';
+  copyBtn.style.display = 'inline-flex';
+  sendBtn.disabled = false;
+  setStatus('✅ बात सुन ली — AI से पूछें', 'idle');
 }
 
-function getLangEmoji(lang) {
-  const map = { hi: "🇮🇳", en: "🇺🇸", ur: "🇵🇰", bn: "🇧🇩" };
-  return map[lang] || "🌐";
+// ── Language Switch ───────────────────────────────────────────────────────────
+function setLang(lang) {
+  currentLang = lang;
+  btnHi.classList.toggle('active', lang === 'hi-IN');
+  btnEn.classList.toggle('active', lang === 'en-US');
+  // Also update TTS voice preference
+  preferredVoice = pickVoice(lang);
 }
 
 // ── Send to AI ────────────────────────────────────────────────────────────────
-sendBtn.addEventListener("click", () => {
-  if (currentTranscript) sendToAI(currentTranscript);
-});
+async function sendToAI() {
+  const text = finalTranscript.trim();
+  if (!text) return;
 
-async function sendToAI(text) {
-  if (!text.trim()) return;
+  // Hide welcome card
+  if (welcomeCard) welcomeCard.style.display = 'none';
 
-  // Hide welcome
-  if (welcomeMsg) welcomeMsg.style.display = "none";
-
-  // Add user message
-  addMessage("user", text);
-
-  // Disable buttons
+  addMessage('user', text);
   sendBtn.disabled = true;
-  speakBtn.disabled = true;
-
-  // Show typing indicator
-  const typingEl = addTypingIndicator();
 
   // Add to history
-  conversationHistory.push({ role: "user", content: text });
+  history.push({ role: 'user', content: text });
+
+  // Show thinking indicator
+  const thinkEl = addThinking();
+  setStatus('🤔 Soch raha hoon...', 'thinking');
 
   try {
-    const res = await fetch(`${API}/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: text,
-        history: conversationHistory.slice(0, -1), // exclude current
-      }),
+    const res = await fetch(`${SERVER}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, history: history.slice(0, -1) }),
     });
-
     const data = await res.json();
-    const aiText = data.response || "कोई जवाब नहीं मिला।";
+    const reply = data.response || 'Koi jawab nahi mila.';
 
-    // Remove typing indicator
-    typingEl.remove();
-
-    // Show AI response
-    addMessage("ai", aiText);
-    lastAIResponse = aiText;
+    thinkEl.remove();
+    addMessage('ai', reply);
+    lastAIResponse = reply;
     speakBtn.disabled = false;
+    history.push({ role: 'assistant', content: reply });
 
-    // Add AI to history
-    conversationHistory.push({ role: "assistant", content: aiText });
-
-    // Reset transcript
-    transcriptText.textContent = "यहाँ आपकी आवाज़ लिखकर आएगी...";
-    transcriptBox.classList.remove("active");
-    copyTranscript.style.display = "none";
-    currentTranscript = "";
+    // Reset transcript area
+    resetTranscriptBar();
+    setStatus('✅ Jawab aa gaya', 'idle');
 
   } catch (err) {
-    typingEl.remove();
-    addMessage("ai", `❌ Error: Server से connect नहीं हो सका।\n\nपक्का करें:\n• voice_server.py चल रही है\n• Ollama install है: https://ollama.com\n• Terminal में चलाएं: ollama run llama3`);
+    thinkEl.remove();
+    const errMsg =
+      '❌ Server se connect nahi hua.\n\n' +
+      'start.bat dobara chalayein aur phir koshish karein.';
+    addMessage('ai', errMsg);
+    setStatus('❌ Server nahi mila', 'error');
   }
+}
+
+// ── TTS — Windows Built-in SpeechSynthesis ───────────────────────────────────
+let preferredVoice = null;
+
+// Voices load hone ka wait karein
+window.speechSynthesis.onvoiceschanged = () => {
+  preferredVoice = pickVoice(currentLang);
+};
+
+function pickVoice(lang) {
+  const voices = window.speechSynthesis.getVoices();
+  // Try to match language exactly, then loose match
+  return (
+    voices.find(v => v.lang === lang) ||
+    voices.find(v => v.lang.startsWith(lang.split('-')[0])) ||
+    voices[0] ||
+    null
+  );
+}
+
+function speakLastResponse() {
+  if (!lastAIResponse) return;
+  speakText(lastAIResponse);
+}
+
+function speakText(text) {
+  // Cancel any ongoing speech
+  window.speechSynthesis.cancel();
+
+  // Split long text into sentences to avoid browser TTS truncation bug
+  const chunks = splitIntoChunks(text, 200);
+  let idx = 0;
+
+  isSpeaking = true;
+  speakBtn.style.display   = 'none';
+  stopSpeakBtn.style.display = 'inline-flex';
+  setStatus('🔊 Bol raha hoon...', 'speaking');
+
+  function speakNext() {
+    if (idx >= chunks.length || !isSpeaking) {
+      onSpeakEnd();
+      return;
+    }
+    const utt = new SpeechSynthesisUtterance(chunks[idx]);
+    utt.lang  = currentLang;
+    utt.rate  = 0.92;
+    utt.pitch = 1.0;
+    utt.volume = 1.0;
+    if (preferredVoice) utt.voice = preferredVoice;
+
+    utt.onend   = () => { idx++; speakNext(); };
+    utt.onerror = (e) => { console.error('TTS error', e); onSpeakEnd(); };
+
+    window.speechSynthesis.speak(utt);
+  }
+
+  speakNext();
+}
+
+function stopSpeaking() {
+  isSpeaking = false;
+  window.speechSynthesis.cancel();
+  onSpeakEnd();
+}
+
+function onSpeakEnd() {
+  isSpeaking = false;
+  speakBtn.style.display    = 'inline-flex';
+  stopSpeakBtn.style.display = 'none';
+  setStatus('तैयार है', 'idle');
+}
+
+// Long text ko chunks mein todna (browser TTS 200-char limit workaround)
+function splitIntoChunks(text, maxLen) {
+  const sentences = text.match(/[^।|.!?\n]+[।.!?\n]*/g) || [text];
+  const chunks = [];
+  let current = '';
+  for (const s of sentences) {
+    if ((current + s).length > maxLen) {
+      if (current) chunks.push(current.trim());
+      current = s;
+    } else {
+      current += s;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length ? chunks : [text];
 }
 
 // ── Chat Message Rendering ────────────────────────────────────────────────────
 function addMessage(role, text) {
-  const div = document.createElement("div");
+  const div = document.createElement('div');
   div.className = `msg ${role}`;
 
-  const now = new Date().toLocaleTimeString("hi-IN", { hour: "2-digit", minute: "2-digit" });
-  const icon = role === "user" ? "fa-user" : "fa-robot";
-  const name = role === "user" ? "आप" : "Voice AI";
+  const time = new Date().toLocaleTimeString('hi-IN', {
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  const avatar = role === 'user' ? '🧑' : '🤖';
+  const name   = role === 'user' ? 'आप' : 'Voice AI';
 
   div.innerHTML = `
-    <div class="msg-meta">
-      <i class="fa-solid ${icon}"></i>
-      <span>${name}</span>
-      <span>${now}</span>
+    <div class="msg-header">
+      <span class="msg-avatar">${avatar}</span>
+      <span class="msg-name">${name}</span>
+      <span class="msg-time">${time}</span>
+      ${role === 'ai'
+        ? `<button class="msg-speak-btn" onclick="speakText(${JSON.stringify(text)})" title="यह सुनें">🔊</button>`
+        : ''}
     </div>
-    <div class="msg-bubble">${escapeHtml(text)}</div>
+    <div class="msg-bubble">${formatText(escHtml(text))}</div>
   `;
 
   chatWindow.appendChild(div);
@@ -267,15 +341,18 @@ function addMessage(role, text) {
   return div;
 }
 
-function addTypingIndicator() {
-  const div = document.createElement("div");
-  div.className = "msg ai";
+function addThinking() {
+  const div = document.createElement('div');
+  div.className = 'msg ai thinking';
   div.innerHTML = `
-    <div class="msg-meta"><i class="fa-solid fa-robot"></i> <span>Voice AI सोच रहा है...</span></div>
-    <div class="typing-indicator">
-      <div class="typing-dots">
-        <span></span><span></span><span></span>
-      </div>
+    <div class="msg-header">
+      <span class="msg-avatar">🤖</span>
+      <span class="msg-name">Voice AI</span>
+    </div>
+    <div class="msg-bubble">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
     </div>
   `;
   chatWindow.appendChild(div);
@@ -283,76 +360,96 @@ function addTypingIndicator() {
   return div;
 }
 
-function escapeHtml(text) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br/>");
+// newlines → <br>, **bold** → <strong>
+function formatText(html) {
+  return html
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br/>');
 }
 
-// ── Speak Response ────────────────────────────────────────────────────────────
-speakBtn.addEventListener("click", async () => {
-  if (!lastAIResponse) return;
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
-  speakBtn.innerHTML = '<i class="fa-solid fa-volume-high fa-beat"></i> <span>बोल रहे हैं...</span>';
-  speakBtn.disabled = true;
-
-  try {
-    await fetch(`${API}/speak`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: lastAIResponse }),
-    });
-  } catch (err) {
-    console.error("TTS error:", err);
-  } finally {
-    setTimeout(() => {
-      speakBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> <span>सुनें</span>';
-      speakBtn.disabled = false;
-    }, 2000);
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function setMicState(on) {
+  if (on) {
+    micBtn.classList.add('recording');
+    micIcon.textContent  = '⏹️';
+    micLabel.textContent = 'रोकें';
+    micRing.classList.add('active');
+  } else {
+    micBtn.classList.remove('recording');
+    micIcon.textContent  = '🎤';
+    micLabel.textContent = 'बोलें';
+    micRing.classList.remove('active');
   }
-});
+}
 
-// ── Copy Transcript ───────────────────────────────────────────────────────────
-copyTranscript.addEventListener("click", () => {
-  if (currentTranscript) {
-    navigator.clipboard.writeText(currentTranscript).then(() => {
-      copyTranscript.innerHTML = '<i class="fa-solid fa-check"></i>';
-      setTimeout(() => {
-        copyTranscript.innerHTML = '<i class="fa-regular fa-copy"></i>';
-      }, 1500);
-    });
-  }
-});
+function setStatus(msg, state) {
+  statusLabel.textContent = msg;
+  statusDot.className = 'status-dot ' + (state || 'idle');
+}
 
-// ── Clear Chat ────────────────────────────────────────────────────────────────
-clearBtn.addEventListener("click", () => {
-  // Remove all messages except welcome
-  const msgs = chatWindow.querySelectorAll(".msg");
-  msgs.forEach(m => m.remove());
+function resetTranscriptBar() {
+  finalTranscript = '';
+  liveText.textContent = 'यहाँ आपकी आवाज़ live दिखेगी...';
+  transcriptBar.classList.remove('active');
+  copyBtn.style.display = 'none';
+}
 
-  if (welcomeMsg) welcomeMsg.style.display = "flex";
-
-  conversationHistory = [];
-  lastAIResponse = "";
-  currentTranscript = "";
+function clearChat() {
+  chatWindow.querySelectorAll('.msg').forEach(m => m.remove());
+  if (welcomeCard) welcomeCard.style.display = 'flex';
+  history       = [];
+  lastAIResponse = '';
   speakBtn.disabled = true;
-  sendBtn.disabled = true;
-  transcriptText.textContent = "यहाँ आपकी आवाज़ लिखकर आएगी...";
-  transcriptBox.classList.remove("active");
-  copyTranscript.style.display = "none";
-});
+  sendBtn.disabled  = true;
+  resetTranscriptBar();
+  window.speechSynthesis.cancel();
+  setStatus('तैयार है', 'idle');
+}
 
-// ── Keyboard Shortcut: Space to record ───────────────────────────────────────
-document.addEventListener("keydown", (e) => {
-  // Space bar = toggle recording (when not in input)
-  if (e.code === "Space" && e.target === document.body) {
+function copyTranscript() {
+  if (!finalTranscript) return;
+  navigator.clipboard.writeText(finalTranscript).then(() => {
+    copyBtn.textContent = '✅';
+    setTimeout(() => { copyBtn.textContent = '📋'; }, 1500);
+  });
+}
+
+// ── Keyboard Shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  // Don't fire if user is typing somewhere
+  if (e.target !== document.body) return;
+
+  if (e.code === 'Space') {
     e.preventDefault();
-    micBtn.click();
+    toggleRecording();
   }
-  // Enter = send to AI
-  if (e.code === "Enter" && !sendBtn.disabled) {
-    sendBtn.click();
+  if (e.code === 'Enter' && !sendBtn.disabled) {
+    sendToAI();
+  }
+  if (e.code === 'KeyS' && !speakBtn.disabled) {
+    speakLastResponse();
   }
 });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+setStatus('तैयार है', 'idle');
+preferredVoice = pickVoice(currentLang);
+
+// Ping server (optional — just to show connected status)
+fetch(`${SERVER}/status`)
+  .then(r => r.json())
+  .then(d => {
+    if (d.server === 'running') setStatus('✅ Server चालू है', 'idle');
+  })
+  .catch(() => {
+    // Server nahi bhi chala ho toh TTS browser se hi kaam karega
+    setStatus('⚠️ Server नहीं मिला (TTS फिर भी काम करेगा)', 'warn');
+  });

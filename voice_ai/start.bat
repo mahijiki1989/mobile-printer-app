@@ -1,56 +1,58 @@
 @echo off
 chcp 65001 >nul
-title Voice AI - Starting...
+title Voice AI — Windows 11
 
 echo.
-echo ╔══════════════════════════════════════════════════════╗
-echo ║         🎤  Voice AI - Starting Up                  ║
-echo ║         Hindi + English Voice Assistant             ║
-echo ╚══════════════════════════════════════════════════════╝
+echo  ╔══════════════════════════════════════════════╗
+echo  ║    🎤  Voice AI — Windows 11 Built-in       ║
+echo  ║    Hindi + English  •  No Install Needed    ║
+echo  ╚══════════════════════════════════════════════╝
 echo.
 
-:: Check if we're in the right directory
-if not exist "voice_server.py" (
-    echo  ❌ voice_server.py nahi mila!
-    echo  voice_ai folder mein se start.bat chalayein.
+:: ── Python check ──────────────────────────────────────────────────────────
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo  ❌ Python nahi mila!
+    echo.
+    echo  Python install karein:  https://www.python.org/downloads/
+    echo  Install ke waqt "Add Python to PATH" zaroor tick karein!
+    echo.
     pause
     exit /b 1
 )
 
-:: Start Ollama in background (if installed)
-echo [1/2] Ollama start kar rahe hain...
-ollama --version >nul 2>&1
-if %errorlevel% equ 0 (
-    start /min "Ollama Server" ollama serve
-    timeout /t 3 /nobreak >nul
-    echo  ✓ Ollama server start ho gaya!
-) else (
-    echo  ⚠️  Ollama nahi mila - AI response kaam nahi karega.
-    echo     Sirf Speech-to-Text (transcription) kaam karega.
+:: ── pip packages (sirf pehli baar ~10 seconds) ───────────────────────────
+echo  [1/2] Packages check/install kar rahe hain...
+pip install flask flask-cors pyttsx3 --quiet --disable-pip-version-check
+if %errorlevel% neq 0 (
+    echo  ❌ Packages install nahi hue — internet check karein.
+    pause
+    exit /b 1
 )
-
-:: Start Voice AI Python server
-echo.
-echo [2/2] Voice AI server start ho raha hai...
-echo.
-echo ══════════════════════════════════════════════════════
-echo  🌐  Browser mein yeh link kholein:
-echo      http://localhost:5050
-echo.
-echo  ⌨️  SPACE  = Recording start/stop
-echo  ⌨️  ENTER  = AI se puchein
-echo.
-echo  Band karne ke liye: Ctrl+C dabayein
-echo ══════════════════════════════════════════════════════
+echo  ✓ Packages ready!
 echo.
 
-:: Open browser automatically after 3 seconds
-start "" timeout /t 3 /nobreak >nul
-start http://localhost:5050
+:: ── Start server + open browser ──────────────────────────────────────────
+echo  [2/2] Server start ho raha hai...
+echo.
+echo  ══════════════════════════════════════════════
+echo   🌐  Browser mein kholein:
+echo       http://localhost:5050
+echo.
+echo   ⌨️  SPACE   = bolna shuru / rokna
+echo   ⌨️  ENTER   = AI se puchein
+echo   ⌨️  S       = jawab sunein
+echo.
+echo   🛑  Band karne ke liye:  Ctrl + C
+echo  ══════════════════════════════════════════════
+echo.
 
-:: Run server
-python voice_server.py
+:: Open browser after short delay
+start "" cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:5050"
+
+:: Run server (blocking)
+python "%~dp0voice_server.py"
 
 echo.
-echo  Server band ho gaya. Phir chalane ke liye start.bat chalayein.
+echo  Server band ho gaya.
 pause
