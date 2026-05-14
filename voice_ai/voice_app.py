@@ -1,19 +1,18 @@
 """
 Voice Transcription App
-Windows 11 - Python 3.14 Compatible
-NO PyAudio, NO SpeechRecognition library
-Uses ONLY: tkinter (built-in) + Windows PowerShell Speech Recognition
+Windows 11 | Python 3.14 | No Extra Packages
+Uses Windows Built-in System.Speech via PowerShell
+OFFLINE - Internet ki zaroorat NAHI
 """
 
 import tkinter as tk
 from tkinter import scrolledtext
 import threading
 import subprocess
-import sys
-import os
 import time
+import os
 
-# ── Colors ────────────────────────────────────────────────────────────────────
+# ── Colors ─────────────────────────────────────────────────────────────
 BG       = "#0f1117"
 BG2      = "#1a1d2e"
 BG3      = "#13151f"
@@ -26,126 +25,111 @@ WHITE    = "#e8eaf0"
 GREY     = "#8892a4"
 DIM      = "#4a5568"
 
+
 class VoiceApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Voice Transcription")
-        self.root.geometry("720x560")
+        self.root.geometry("700x520")
         self.root.configure(bg=BG)
         self.root.resizable(True, True)
 
-        # State
-        self.is_listening  = False
-        self.full_text     = ""
-        self.listen_thread = None
-        self.stop_flag     = threading.Event()
-        self.timer_secs    = 0
-        self.timer_id      = None
+        self.is_listening = False
+        self.full_text = ""
+        self.stop_flag = threading.Event()
+        self.process = None
+        self.timer_secs = 0
+        self.timer_id = None
 
         self._build_ui()
-        self._set_status("ready", "✅ Taiyaar — 🎤 बोलें button dabayein ya SPACE")
+        self._set_status("ready", "Taiyaar — बोलें button dabayein ya SPACE")
 
-    # ─────────────────────────────────────────────────────────────────────────
     def _build_ui(self):
-        # Title bar
-        top = tk.Frame(self.root, bg=BG2, height=50)
+        # ─── Top ───
+        top = tk.Frame(self.root, bg=BG2, height=48)
         top.pack(fill="x")
         top.pack_propagate(False)
-        tk.Label(top, text="🎙️  Voice Transcription",
-                 bg=BG2, fg=WHITE, font=("Segoe UI", 14, "bold")).pack(side="left", padx=14, pady=10)
-        tk.Label(top, text="Windows 11 • Hindi + English",
-                 bg=BG2, fg=DIM, font=("Segoe UI", 9)).pack(side="left", padx=4)
+        tk.Label(top, text="  Voice Transcription", bg=BG2, fg=WHITE,
+                 font=("Segoe UI", 13, "bold")).pack(side="left", padx=10, pady=8)
+        tk.Label(top, text="Hindi + English | Offline",
+                 bg=BG2, fg=DIM, font=("Segoe UI", 9)).pack(side="left")
 
-        # Status bar
-        sbar = tk.Frame(self.root, bg="#111827", height=28)
-        sbar.pack(fill="x")
-        sbar.pack_propagate(False)
-        self.dot_lbl = tk.Label(sbar, text="●", bg="#111827", fg=YELLOW,
-                                font=("Segoe UI", 10))
-        self.dot_lbl.pack(side="left", padx=(12, 4))
-        self.status_lbl = tk.Label(sbar, text="...", bg="#111827", fg=GREY,
-                                   font=("Segoe UI", 9), anchor="w")
-        self.status_lbl.pack(side="left", fill="x")
+        # ─── Status ───
+        sf = tk.Frame(self.root, bg="#111827", height=26)
+        sf.pack(fill="x")
+        sf.pack_propagate(False)
+        self.dot = tk.Label(sf, text="●", bg="#111827", fg=GREEN, font=("", 10))
+        self.dot.pack(side="left", padx=(12, 4))
+        self.status = tk.Label(sf, text="...", bg="#111827", fg=GREY,
+                               font=("Segoe UI", 9), anchor="w")
+        self.status.pack(side="left", fill="x")
 
-        # Live bar
-        live_bar = tk.Frame(self.root, bg="#0d1933", height=34)
-        live_bar.pack(fill="x")
-        live_bar.pack_propagate(False)
-        tk.Label(live_bar, text="LIVE", bg="#0d1933", fg=BLUE,
-                 font=("Segoe UI", 8, "bold")).pack(side="left", padx=(12,5))
-        self.live_lbl = tk.Label(live_bar, text="यहाँ bolne par text dikhega...",
-                                  bg="#0d1933", fg=GREY,
-                                  font=("Segoe UI", 10), anchor="w")
-        self.live_lbl.pack(side="left", fill="x", expand=True)
+        # ─── Live ───
+        lf = tk.Frame(self.root, bg="#0d1933", height=32)
+        lf.pack(fill="x")
+        lf.pack_propagate(False)
+        tk.Label(lf, text=" LIVE", bg="#0d1933", fg=BLUE,
+                 font=("Segoe UI", 8, "bold")).pack(side="left", padx=(10, 4))
+        self.live = tk.Label(lf, text="", bg="#0d1933", fg=GREY,
+                             font=("Segoe UI", 10), anchor="w")
+        self.live.pack(side="left", fill="x", expand=True)
 
-        # Main text area
-        txt_frame = tk.Frame(self.root, bg=BG)
-        txt_frame.pack(fill="both", expand=True, padx=12, pady=(8,4))
+        # ─── Text ───
+        tf = tk.Frame(self.root, bg=BG)
+        tf.pack(fill="both", expand=True, padx=12, pady=(8, 4))
         self.textbox = scrolledtext.ScrolledText(
-            txt_frame, wrap=tk.WORD,
-            font=("Consolas", 12),
-            bg=BG3, fg=WHITE,
-            insertbackground=BLUE,
-            relief="flat", bd=0,
-            padx=14, pady=12,
-            spacing1=4, spacing3=4,
-            state="disabled"
+            tf, wrap=tk.WORD, font=("Consolas", 12),
+            bg=BG3, fg=WHITE, insertbackground=BLUE,
+            relief="flat", bd=0, padx=14, pady=12,
+            spacing1=3, spacing3=3, state="disabled"
         )
         self.textbox.pack(fill="both", expand=True)
 
-        # Word count
-        self.count_lbl = tk.Label(self.root, text="0 words  •  0 chars",
-                                   bg=BG, fg=DIM, font=("Segoe UI", 9), anchor="e")
-        self.count_lbl.pack(fill="x", padx=14, pady=(0, 3))
+        # ─── Count ───
+        self.count = tk.Label(self.root, text="0 words", bg=BG, fg=DIM,
+                              font=("Segoe UI", 9), anchor="e")
+        self.count.pack(fill="x", padx=14)
 
-        # Bottom bar
+        # ─── Bottom ───
         bot = tk.Frame(self.root, bg=BG2)
         bot.pack(fill="x", side="bottom")
 
         self.timer_lbl = tk.Label(bot, text="0:00", bg=BG2, fg=DIM,
-                                   font=("Consolas", 10))
-        self.timer_lbl.pack(side="left", padx=14, pady=14)
+                                  font=("Consolas", 10))
+        self.timer_lbl.pack(side="left", padx=14, pady=12)
 
         # Clear
-        self.clear_btn = tk.Button(bot, text="🗑  Clear", command=self._clear,
-                                   bg="#2d1b1b", fg="#f87171",
-                                   font=("Segoe UI", 10, "bold"),
-                                   relief="flat", bd=0, padx=14, pady=8,
-                                   cursor="hand2",
-                                   activebackground="#3d2020", activeforeground="#f87171")
-        self.clear_btn.pack(side="left", padx=6, pady=10)
+        tk.Button(bot, text="  Clear", command=self._clear,
+                  bg="#2d1b1b", fg="#f87171", font=("Segoe UI", 10, "bold"),
+                  relief="flat", bd=0, padx=14, pady=7, cursor="hand2",
+                  activebackground="#3d2020", activeforeground="#f87171"
+                  ).pack(side="left", padx=6, pady=10)
 
         # Copy
-        self.copy_btn = tk.Button(bot, text="📋  Copy All", command=self._copy,
-                                   bg="#1a2d1a", fg="#4ade80",
-                                   font=("Segoe UI", 10, "bold"),
-                                   relief="flat", bd=0, padx=14, pady=8,
-                                   cursor="hand2",
-                                   activebackground="#1f381f", activeforeground="#4ade80")
+        self.copy_btn = tk.Button(bot, text="  Copy All", command=self._copy,
+                                  bg="#1a2d1a", fg="#4ade80",
+                                  font=("Segoe UI", 10, "bold"),
+                                  relief="flat", bd=0, padx=14, pady=7,
+                                  cursor="hand2",
+                                  activebackground="#1f381f",
+                                  activeforeground="#4ade80")
         self.copy_btn.pack(side="left", padx=0, pady=10)
 
-        # Hint
-        tk.Label(bot, text="Space = बोलें/रोकें  |  Ctrl+C = Copy",
-                 bg=BG2, fg=DIM, font=("Segoe UI", 8)
-                 ).pack(side="right", padx=(0, 110))
-
-        # MIC button
-        self.mic_btn = tk.Button(bot, text="🎤  बोलें",
-                                  command=self._toggle,
-                                  bg=PURPLE, fg="white",
-                                  font=("Segoe UI", 12, "bold"),
-                                  relief="flat", bd=0,
-                                  padx=26, pady=10,
-                                  cursor="hand2",
-                                  activebackground="#6d28d9", activeforeground="white")
+        # Mic
+        self.mic_btn = tk.Button(bot, text="  Bolein", command=self._toggle,
+                                 bg=PURPLE, fg="white",
+                                 font=("Segoe UI", 12, "bold"),
+                                 relief="flat", bd=0, padx=24, pady=9,
+                                 cursor="hand2",
+                                 activebackground="#6d28d9",
+                                 activeforeground="white")
         self.mic_btn.pack(side="right", padx=12, pady=10)
 
-        # Keyboard
-        self.root.bind("<space>",   lambda e: self._toggle())
+        # Keys
+        self.root.bind("<space>", lambda e: self._toggle())
         self.root.bind("<Control-c>", lambda e: self._copy())
-        self.root.bind("<Control-l>", lambda e: self._clear())
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ── Toggle ────────────────────────────────────────────────────────────
     def _toggle(self):
         if self.is_listening:
             self._stop()
@@ -155,173 +139,136 @@ class VoiceApp:
     def _start(self):
         self.is_listening = True
         self.stop_flag.clear()
-        self.mic_btn.config(text="⏹  रोकें", bg=RED, activebackground="#b91c1c")
-        self._set_status("listening", "🎙️  सुन रहे हैं... बोलते रहें जितना चाहें")
+        self.mic_btn.config(text="  Rokein", bg=RED, activebackground="#b91c1c")
+        self._set_status("listening", "Sun rahe hain... bolte rahein")
         self._start_timer()
-        self.listen_thread = threading.Thread(target=self._listen_loop, daemon=True)
-        self.listen_thread.start()
+        threading.Thread(target=self._listen, daemon=True).start()
 
     def _stop(self):
         self.is_listening = False
         self.stop_flag.set()
+        if self.process:
+            try:
+                self.process.terminate()
+            except:
+                pass
         self._stop_timer()
-        self.mic_btn.config(text="🎤  बोलें", bg=PURPLE, activebackground="#6d28d9")
-        self._set_status("ready", "✅ Ruk gaye — Copy karein ya dobara bolein")
-        self.live_lbl.config(text="", fg=GREY)
+        self.mic_btn.config(text="  Bolein", bg=PURPLE, activebackground="#6d28d9")
+        self._set_status("ready", "Ruk gaye — Copy karein ya dobara bolein")
+        self.live.config(text="", fg=GREY)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Windows PowerShell Speech Recognition — koi extra package nahi!
-    # ─────────────────────────────────────────────────────────────────────────
-    def _listen_loop(self):
-        """
-        Windows Speech Recognition (System.Speech) via PowerShell.
-        Python 3.14 ke saath 100% compatible.
-        Koi PyAudio, koi SpeechRecognition library nahi chahiye.
-        OFFLINE — internet ki zaroorat nahi!
-        """
-        # PowerShell script jo continuously sun ta hai
-        ps_script = r"""
+    # ── Listen via PowerShell System.Speech ────────────────────────────────
+    def _listen(self):
+        """Windows built-in speech recognition - OFFLINE, no packages."""
+        
+        ps_code = '''
 Add-Type -AssemblyName System.Speech
-$recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine
-
-# Hindi + English grammar — free dictation
-$grammar = New-Object System.Speech.Recognition.DictationGrammar
-$recognizer.LoadGrammar($grammar)
-
-# Default microphone
-$recognizer.SetInputToDefaultAudioDevice()
-
-# Timeout settings
-$recognizer.InitialSilenceTimeout = [TimeSpan]::FromSeconds(5)
-$recognizer.BabbleTimeout = [TimeSpan]::FromSeconds(3)
-$recognizer.EndSilenceTimeout = [TimeSpan]::FromSeconds(1.5)
-
-Write-Host "READY"
-[Console]::Out.Flush()
-
-while ($true) {
-    try {
-        $result = $recognizer.Recognize([TimeSpan]::FromSeconds(30))
-        if ($result -ne $null -and $result.Text -ne "") {
-            Write-Host ("TEXT:" + $result.Text)
-            [Console]::Out.Flush()
-        } else {
-            Write-Host "TIMEOUT"
-            [Console]::Out.Flush()
+$re = New-Object System.Speech.Recognition.SpeechRecognitionEngine
+$gr = New-Object System.Speech.Recognition.DictationGrammar
+$re.LoadGrammar($gr)
+$re.SetInputToDefaultAudioDevice()
+$re.InitialSilenceTimeout = [TimeSpan]::FromSeconds(4)
+$re.EndSilenceTimeout = [TimeSpan]::FromSeconds(1.5)
+Write-Output "READY"
+while($true){
+    try{
+        $r = $re.Recognize([TimeSpan]::FromSeconds(30))
+        if($r -and $r.Text){
+            Write-Output ("TEXT:" + $r.Text)
+        }else{
+            Write-Output "WAIT"
         }
-    } catch {
-        Write-Host ("ERROR:" + $_.Exception.Message)
-        [Console]::Out.Flush()
+    }catch{
+        Write-Output ("ERR:" + $_.Exception.Message)
         break
     }
 }
-"""
+'''
         try:
-            proc = subprocess.Popen(
+            self.process = subprocess.Popen(
                 ["powershell", "-NoProfile", "-NonInteractive",
-                 "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+                 "-ExecutionPolicy", "Bypass", "-Command", ps_code],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=subprocess.CREATE_NO_WINDOW
+                text=True, encoding="utf-8", errors="replace",
+                creationflags=0x08000000  # CREATE_NO_WINDOW
             )
 
-            # Wait for READY
-            while not self.stop_flag.is_set():
-                line = proc.stdout.readline()
-                if not line:
+            for line in self.process.stdout:
+                if self.stop_flag.is_set():
                     break
                 line = line.strip()
+                if not line:
+                    continue
+
                 if line == "READY":
-                    self.root.after(0, lambda: self.live_lbl.config(
-                        text="🎙️ Bol sakte hain...", fg=GREEN))
-                    break
-                elif line.startswith("ERROR:"):
-                    self.root.after(0, lambda l=line: self._set_status(
-                        "error", f"❌ {l[6:]}"))
-                    return
+                    self.root.after(0, lambda: self.live.config(
+                        text="Bol sakte hain...", fg=GREEN))
 
-            # Main loop — sun ta raho
-            while not self.stop_flag.is_set():
-                line = proc.stdout.readline()
-                if not line:
-                    break
-                line = line.strip()
-                if not line:
-                    continue
+                elif line.startswith("TEXT:"):
+                    txt = line[5:].strip()
+                    if txt:
+                        self.root.after(0, lambda t=txt: self._add(t))
 
-                if line.startswith("TEXT:"):
-                    text = line[5:].strip()
-                    if text:
-                        self.root.after(0, lambda t=text: self._add_text(t))
-
-                elif line == "TIMEOUT":
-                    # Normal — koi awaaz nahi aayi, continue
-                    continue
-
-                elif line.startswith("ERROR:"):
-                    self.root.after(0, lambda l=line: self._set_status(
-                        "error", f"❌ {l[6:]}"))
+                elif line.startswith("ERR:"):
+                    err = line[4:]
+                    self.root.after(0, lambda e=err: self._set_status(
+                        "error", f"Error: {e}"))
                     break
 
+        except FileNotFoundError:
+            self.root.after(0, lambda: self._set_status(
+                "error", "PowerShell nahi mila — Windows 11 hai?"))
         except Exception as e:
             self.root.after(0, lambda: self._set_status(
-                "error", f"❌ Error: {e}"))
+                "error", f"Error: {e}"))
         finally:
             try:
-                proc.terminate()
-            except Exception:
+                self.process.terminate()
+            except:
                 pass
-            if not self.stop_flag.is_set():
-                # Auto restart karo
-                if self.is_listening:
-                    time.sleep(0.3)
-                    self.listen_thread = threading.Thread(
-                        target=self._listen_loop, daemon=True)
-                    self.listen_thread.start()
+            # Auto restart if still listening
+            if self.is_listening and not self.stop_flag.is_set():
+                time.sleep(0.5)
+                threading.Thread(target=self._listen, daemon=True).start()
 
-    # ─────────────────────────────────────────────────────────────────────────
-    def _add_text(self, phrase: str):
-        """Main thread mein text add karo."""
-        sep = " " if self.full_text and not self.full_text[-1] in ("\n", " ") else ""
+    # ── Helpers ────────────────────────────────────────────────────────────
+    def _add(self, phrase):
+        sep = " " if self.full_text and self.full_text[-1] not in ("\n", " ") else ""
         self.full_text += sep + phrase
-        self._refresh()
-        self.live_lbl.config(text=f"✓ \"{phrase}\"", fg=GREEN)
-        self.root.after(2000, lambda: self.live_lbl.config(
-            text="🎙️ Bol sakte hain...", fg=GREY))
-
-    def _refresh(self):
         self.textbox.configure(state="normal")
         self.textbox.delete("1.0", tk.END)
         self.textbox.insert(tk.END, self.full_text)
         self.textbox.see(tk.END)
         self.textbox.configure(state="disabled")
-        w = len(self.full_text.split()) if self.full_text.strip() else 0
-        c = len(self.full_text)
-        self.count_lbl.config(text=f"{w} words  •  {c} chars")
+        w = len(self.full_text.split())
+        self.count.config(text=f"{w} words  |  {len(self.full_text)} chars")
+        self.live.config(text=f'"{phrase}"', fg=GREEN)
+        self.root.after(2500, lambda: self.live.config(
+            text="Bol sakte hain...", fg=GREY) if self.is_listening else None)
 
     def _set_status(self, state, text):
-        colors = {"ready": GREEN, "listening": BLUE, "error": RED, "warn": YELLOW}
-        self.dot_lbl.config(fg=colors.get(state, YELLOW))
-        self.status_lbl.config(text=text)
+        c = {"ready": GREEN, "listening": BLUE, "error": RED, "warn": YELLOW}
+        self.dot.config(fg=c.get(state, YELLOW))
+        self.status.config(text=text)
 
     def _copy(self):
         if not self.full_text.strip():
             return
         self.root.clipboard_clear()
         self.root.clipboard_append(self.full_text)
-        self.copy_btn.config(text="✅  Copied!", fg="#86efac")
+        self.copy_btn.config(text="  Copied!", fg="#86efac")
         self.root.after(2000, lambda: self.copy_btn.config(
-            text="📋  Copy All", fg="#4ade80"))
+            text="  Copy All", fg="#4ade80"))
 
     def _clear(self):
         self.full_text = ""
-        self._refresh()
-        self.live_lbl.config(text="", fg=GREY)
+        self.textbox.configure(state="normal")
+        self.textbox.delete("1.0", tk.END)
+        self.textbox.configure(state="disabled")
+        self.count.config(text="0 words")
+        self.live.config(text="", fg=GREY)
 
-    # Timer
     def _start_timer(self):
         self.timer_secs = 0
         self._tick()
@@ -341,26 +288,23 @@ while ($true) {
 
     def on_close(self):
         self.stop_flag.set()
+        if self.process:
+            try:
+                self.process.terminate()
+            except:
+                pass
         self.root.destroy()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-def main():
+# ── Main ───────────────────────────────────────────────────────────────
+if __name__ == "__main__":
     root = tk.Tk()
-
-    # Windows 11 dark title bar
     try:
         from ctypes import windll, byref, sizeof, c_int
         hwnd = windll.user32.GetParent(root.winfo_id())
-        windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 20, byref(c_int(1)), sizeof(c_int))
-    except Exception:
+        windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, byref(c_int(1)), sizeof(c_int))
+    except:
         pass
-
     app = VoiceApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
     root.mainloop()
-
-
-if __name__ == "__main__":
-    main()
