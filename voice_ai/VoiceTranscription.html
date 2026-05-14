@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Transcription — Hindi + English</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0f1117;color:#e8eaf0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+header{background:#1a1d2e;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.logo h1{font-size:1.1rem;font-weight:700}
+.logo p{font-size:.72rem;color:#8892a4;margin-top:2px}
+.lang-row{display:flex;gap:6px}
+.lang-btn{padding:5px 12px;border:1px solid rgba(255,255,255,.1);border-radius:6px;background:none;color:#8892a4;font-size:.78rem;font-weight:600;cursor:pointer}
+.lang-btn.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.status-bar{background:#111827;padding:6px 20px;display:flex;align-items:center;gap:8px;font-size:.82rem;color:#8892a4}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e}
+.status-dot.listening{background:#4f8ef7;animation:blink 1s infinite}
+.status-dot.error{background:#ef4444}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.live-bar{background:#0d1933;padding:8px 20px;display:flex;align-items:center;gap:8px;min-height:36px}
+.live-label{font-size:.7rem;font-weight:700;color:#4f8ef7}
+#liveText{font-size:.9rem;color:#8892a4;flex:1}
+.text-area{flex:1;overflow-y:auto;padding:16px 20px}
+#transcript{width:100%;min-height:100%;font-family:Consolas,monospace;font-size:1rem;line-height:1.8;color:#e8eaf0;background:#13151f;border:none;border-radius:10px;padding:16px;resize:none;outline:none}
+.word-count{text-align:right;padding:4px 20px;font-size:.78rem;color:#4a5568}
+footer{background:#1a1d2e;padding:12px 20px;display:flex;align-items:center;gap:10px;border-top:1px solid rgba(255,255,255,.07)}
+#timer{font-family:Consolas;font-size:.9rem;color:#4a5568;min-width:50px}
+.btn{padding:8px 18px;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Segoe UI',sans-serif}
+.btn-clear{background:#2d1b1b;color:#f87171}
+.btn-clear:hover{background:#3d2020}
+.btn-copy{background:#1a2d1a;color:#4ade80}
+.btn-copy:hover{background:#1f381f}
+.btn-mic{margin-left:auto;padding:10px 28px;font-size:1rem;background:linear-gradient(135deg,#7c3aed,#4f8ef7);color:#fff;border-radius:10px;box-shadow:0 4px 15px rgba(124,58,237,.4)}
+.btn-mic:hover{opacity:.9}
+.btn-mic.recording{background:linear-gradient(135deg,#dc2626,#ef4444);box-shadow:0 4px 15px rgba(239,68,68,.5);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 4px 15px rgba(239,68,68,.4)}50%{box-shadow:0 4px 25px rgba(239,68,68,.8)}}
+.shortcuts{font-size:.72rem;color:#4a5568;margin-left:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🎙️</div>
+    <div>
+      <h1>Voice Transcription</h1>
+      <p>Bolein aur likhega — Hindi + English</p>
+    </div>
+  </div>
+  <div class="lang-row">
+    <button class="lang-btn active" id="btnHi" onclick="setLang('hi-IN')">हिंदी</button>
+    <button class="lang-btn" id="btnEn" onclick="setLang('en-US')">English</button>
+  </div>
+</header>
+
+<div class="status-bar">
+  <span class="status-dot" id="statusDot"></span>
+  <span id="statusText">Taiyaar — Bolein button dabayein ya SPACE</span>
+</div>
+
+<div class="live-bar">
+  <span class="live-label">LIVE</span>
+  <span id="liveText"></span>
+</div>
+
+<div class="text-area">
+  <textarea id="transcript" placeholder="Yahan aapki baat likhti jaayegi...&#10;&#10;Bolein button dabayein aur bolna shuru karein.&#10;Hindi ya English — dono kaam karenge.&#10;&#10;Jitna chahein bolte rahein — koi time limit nahi!"></textarea>
+</div>
+
+<div class="word-count" id="wordCount">0 words | 0 chars</div>
+
+<footer>
+  <span id="timer">0:00</span>
+  <button class="btn btn-clear" onclick="clearAll()">🗑 Clear</button>
+  <button class="btn btn-copy" id="copyBtn" onclick="copyAll()">📋 Copy All</button>
+  <span class="shortcuts">Space = Bolein/Rokein</span>
+  <button class="btn btn-mic" id="micBtn" onclick="toggleMic()">🎤 Bolein</button>
+</footer>
+
+<script>
+// ── State ──
+let isListening = false;
+let recognition = null;
+let fullText = '';
+let timerSec = 0;
+let timerInterval = null;
+let currentLang = 'hi-IN';
+
+// ── Speech Recognition ──
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+  document.getElementById('statusText').textContent = 'ERROR: Yeh browser support nahi karta! Microsoft Edge mein kholein.';
+  document.getElementById('statusDot').className = 'status-dot error';
+}
+
+function buildRecognition() {
+  const r = new SpeechRecognition();
+  r.lang = currentLang;
+  r.interimResults = true;
+  r.continuous = true;
+  r.maxAlternatives = 1;
+
+  r.onresult = (e) => {
+    let interim = '';
+    let final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        final += t;
+      } else {
+        interim += t;
+      }
+    }
+    if (final) {
+      fullText += (fullText && !fullText.endsWith(' ') && !fullText.endsWith('\n') ? ' ' : '') + final;
+      document.getElementById('transcript').value = fullText;
+      updateCount();
+      document.getElementById('liveText').textContent = '✓ "' + final.trim().substring(0,60) + '"';
+      document.getElementById('liveText').style.color = '#22c55e';
+    }
+    if (interim) {
+      document.getElementById('liveText').textContent = interim;
+      document.getElementById('liveText').style.color = '#f59e0b';
+    }
+  };
+
+  r.onerror = (e) => {
+    if (e.error === 'not-allowed') {
+      setStatus('error', 'Microphone blocked! Address bar mein lock icon → Mic Allow karein');
+      stopListening();
+    } else if (e.error === 'no-speech') {
+      // normal — just continue
+    } else if (e.error === 'aborted') {
+      // manual stop
+    }
+  };
+
+  r.onend = () => {
+    if (isListening) {
+      // Auto restart (browser timeout workaround)
+      setTimeout(() => {
+        if (isListening) {
+          try {
+            recognition = buildRecognition();
+            recognition.start();
+          } catch(e) {}
+        }
+      }, 100);
+    }
+  };
+
+  return r;
+}
+
+// ── Toggle ──
+function toggleMic() {
+  if (isListening) { stopListening(); } 
+  else { startListening(); }
+}
+
+function startListening() {
+  if (!SpeechRecognition) return;
+  isListening = true;
+  recognition = buildRecognition();
+  try { recognition.start(); } catch(e) { return; }
+  document.getElementById('micBtn').textContent = '⏹ Rokein';
+  document.getElementById('micBtn').classList.add('recording');
+  setStatus('listening', 'Sun raha hoon... bolte rahein jitna chahein');
+  document.getElementById('liveText').textContent = 'Bol sakte hain...';
+  document.getElementById('liveText').style.color = '#22c55e';
+  startTimer();
+}
+
+function stopListening() {
+  isListening = false;
+  if (recognition) { try { recognition.stop(); } catch(e){} }
+  document.getElementById('micBtn').textContent = '🎤 Bolein';
+  document.getElementById('micBtn').classList.remove('recording');
+  setStatus('ready', 'Ruk gaye — Copy karein ya dobara bolein');
+  document.getElementById('liveText').textContent = '';
+  stopTimer();
+}
+
+// ── Helpers ──
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (state === 'listening' ? ' listening' : state === 'error' ? ' error' : '');
+  document.getElementById('statusText').textContent = text;
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  document.getElementById('btnHi').className = 'lang-btn' + (lang==='hi-IN' ? ' active' : '');
+  document.getElementById('btnEn').className = 'lang-btn' + (lang==='en-US' ? ' active' : '');
+  if (isListening) { stopListening(); startListening(); }
+}
+
+function copyAll() {
+  const t = document.getElementById('transcript').value;
+  if (!t.trim()) return;
+  navigator.clipboard.writeText(t);
+  document.getElementById('copyBtn').textContent = '✅ Copied!';
+  setTimeout(() => { document.getElementById('copyBtn').textContent = '📋 Copy All'; }, 2000);
+}
+
+function clearAll() {
+  fullText = '';
+  document.getElementById('transcript').value = '';
+  updateCount();
+  document.getElementById('liveText').textContent = '';
+}
+
+function updateCount() {
+  const t = fullText.trim();
+  const w = t ? t.split(/\s+/).length : 0;
+  document.getElementById('wordCount').textContent = w + ' words | ' + fullText.length + ' chars';
+}
+
+// Timer
+function startTimer() {
+  timerSec = 0;
+  timerInterval = setInterval(() => {
+    timerSec++;
+    const m = Math.floor(timerSec/60);
+    const s = timerSec % 60;
+    document.getElementById('timer').textContent = m + ':' + (s<10?'0':'') + s;
+    document.getElementById('timer').style.color = '#ef4444';
+  }, 1000);
+}
+function stopTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('timer').style.color = '#4a5568';
+}
+
+// Keyboard shortcut
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'TEXTAREA') return;
+  if (e.code === 'Space') { e.preventDefault(); toggleMic(); }
+});
+
+// Auto-scroll textarea
+const ta = document.getElementById('transcript');
+const observer = new MutationObserver(() => { ta.scrollTop = ta.scrollHeight; });
+setInterval(() => { ta.scrollTop = ta.scrollHeight; }, 500);
+</script>
+</body>
+</html>
