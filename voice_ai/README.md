@@ -1,105 +1,114 @@
-# 🎤 Voice AI — Windows 11 Built-in
-### Hindi + English | 100% Free | Kuch bhi Install Nahi
+# 🎤 Voice Transcription App — Windows 11
+
+**Boliye aur text aa jaayega — koi browser nahi, koi server nahi**
 
 ---
 
-## ✨ Yeh Kya Hai?
+## ⚡ Ek Baar mein Samajh Lo
 
-Aapke Windows 11 laptop ke liye ek Voice Assistant — jo **sirf browser aur Python** se chalta hai.
-
-| Kaam | Kaise |
-|------|-------|
-| 🎤 Aawaz sunega | Browser ka built-in **Web Speech API** |
-| 📝 Text likhega | Automatic — real-time screen par |
-| 🤖 Jawab dega | Python ka simple AI engine |
-| 🔊 Bol ke sunayega | Windows ka built-in **SAPI TTS** |
-| 🔒 Data safe | Koi data internet par nahi jata |
-
-> **Koi Ollama nahi, koi model download nahi, koi API key nahi!**
+```
+build.bat  →  VoiceTranscription.exe  →  Desktop pe rakh do  →  Double-click  →  Boliye!
+```
 
 ---
 
-## 📋 Sirf Ek Cheez Chahiye
+## 📥 Step 1 — ZIP Download Karein
 
-### Python 3.8+ (Python 3.14 ✅ fully supported)
-Agar pehle se installed hai → **seedha `start.bat` chalayein!**
+**👉 https://github.com/mahijiki1989/mobile-printer-app/archive/refs/heads/feature/voice-ai.zip**
 
-Nahi hai toh: 👉 **https://www.python.org/downloads/**
-
-> ⚠️ Install karte waqt **"Add Python to PATH"** ka tick **zaroor** lagayein!
+Extract karo → `voice_ai` folder kholein
 
 ---
 
-## ▶️ Chalane Ka Tarika
+## 🔨 Step 2 — EXE Banayein (Sirf Ek Baar)
+
+**`build.bat`** pe double-click karein
 
 ```
-1.  voice_ai  folder mein jaayein
-2.  start.bat  par double-click karein
-3.  Browser apne aap khuleg: http://localhost:5050
-4.  🎤 Boliye!
+[1/4] Python check...       ✓
+[2/4] Packages install...   ✓  (2-3 min)
+[3/4] EXE build...          ✓  (3-5 min)
+[4/4] EXE copy...           ✓
+
+BUILD SUCCESSFUL!
+VoiceTranscription.exe ready hai!
 ```
 
-**Bas itna hi!** (pehli baar 3 packages ~10 seconds mein install honge)
+> ⚠️ Agar PyAudio install fail ho, terminal mein chalayein:
+> ```
+> pip install pipwin
+> pipwin install pyaudio
+> ```
+> Phir `build.bat` dobara chalayein.
 
 ---
 
-## 🎮 Kaise Use Karein
+## ▶️ Step 3 — Use Karein (Roz)
+
+1. **`VoiceTranscription.exe`** Desktop pe rakho
+2. Double-click karke kholein
+3. **🎤 बोलें** button dabayein (ya `Space`)
+4. Bolte rahein — **jitna chahein, jitni der**
+5. Rukne ke baad **⏹ रोकें** dabayein
+6. **📋 Copy All** se copy karein
+
+---
+
+## 🖥️ App Kaisi Dikhti Hai
 
 ```
-Step 1:  🎤 [बोलें] button dabayein
-Step 2:  Bolna shuru karein — Hindi ya English
-Step 3:  Aapki baat screen par live likhti jayegi
-Step 4:  [रोकें] dabayein — baat poori ho gayi
-Step 5:  🤖 [AI से पूछें] dabayein — jawab aayega
-Step 6:  🔊 [सुनें] dabayein — jawab awaaz mein sunein
+┌─────────────────────────────────────────────┐
+│ 🎙️  Voice Transcription   Windows 11 • Free │
+│ ● Mic ready — बोलें button dabayein         │
+│ LIVE [यहाँ real-time text दिखेगा...]        │
+│                                              │
+│  ┌──────────────────────────────────────┐   │
+│  │                                      │   │
+│  │  Aapki poori baat yahan              │   │
+│  │  likhti jaayegi...                   │   │
+│  │                                      │   │
+│  └──────────────────────────────────────┘   │
+│  42 words  •  236 characters                │
+│                                              │
+│  0:00  🗑 Clear  📋 Copy All    🎤 बोलें   │
+└─────────────────────────────────────────────┘
 ```
 
-### ⌨️ Keyboard Shortcuts
+---
+
+## ⌨️ Shortcuts
 
 | Key | Kaam |
 |-----|------|
-| `SPACE` | Recording shuru karo / roko |
-| `ENTER` | AI se jawab maango |
-| `S` | Jawab awaaz mein sunein |
+| `Space` | Bolna shuru / rokna |
+| `Ctrl+C` | Copy all text |
+| `Ctrl+L` | Clear |
 
 ---
 
-## 🤖 AI Kya Kya Kar Sakta Hai?
+## ❓ Problems
 
-| Bolo | Jawab milega |
-|------|-------------|
-| "Namaste" / "नमस्ते" | Good Morning/Evening greeting |
-| "Kitne baje hain?" | Abhi ka time |
-| "Aaj ki date kya hai?" | Aaj ki date aur din |
-| "Koi joke sunao" | Hindi ya English joke |
-| "15 times 8 kya hai?" | 120 ✓ |
-| "25 plus 37?" | 62 ✓ |
-| "Help" | Poori capabilities list |
-| "Bye" / "Alvida" | Farewell |
+### ❌ PyAudio install nahi hua
+```
+pip install pipwin
+pipwin install pyaudio
+```
 
----
+### ❌ "Microphone nahi mila"
+- Mic connected hai? Device Manager mein check karein
+- Dusra mic try karein
 
-## ❓ Problems aur Solutions
+### ❌ "Internet connection nahi"
+- Google Speech API ke liye internet chahiye
+- WiFi/data on karein
 
-### ❌ "Microphone blocked" error
-> Browser address bar mein **🔒 lock icon** click karein  
-> → **Microphone = Allow** karein → Page refresh karein
+### 🐌 Pehli baar slow open hota hai
+- Normal hai — antivirus scan karta hai `.exe` ko pehli baar
+- Ek baar open hone ke baad fast hoga
 
-### ❌ "Web Speech API supported nahi"
-> **Microsoft Edge** ya **Google Chrome** mein kholein  
-> Firefox support nahi karta
-
-### ❌ Server start nahi hua
-> `voice_ai` **folder ke andar se** `start.bat` chalayein  
-> Bahar se chalane par path error aata hai
-
-### ❌ Python nahi mila
-> https://www.python.org/downloads/ se install karein  
-> **"Add Python to PATH"** tick karna mat bhulen!
-
-### 🔇 Awaaz nahi aa rahi
-> Browser mein `http://localhost:5050` kholein  
-> (HTTPS nahi, HTTP — localhost pe TLS nahi chahiye)
+### ❌ Windows ne "Unknown Publisher" warning diya
+- "More info" click karein → "Run anyway"
+- Yeh normal hai unsigned `.exe` ke liye
 
 ---
 
@@ -107,27 +116,12 @@ Step 6:  🔊 [सुनें] dabayein — jawab awaaz mein sunein
 
 ```
 voice_ai/
-├── start.bat          ← ▶ Yahi chalana hai (double-click)
-├── voice_server.py    ← Python server (brain)
-├── requirements.txt   ← 2 packages ki list
-├── README.md          ← Yeh file
-└── static/
-    ├── index.html     ← Browser UI
-    ├── style.css      ← Design
-    └── app.js         ← Voice recording + TTS logic
+├── voice_app.py          ← Main source code
+├── build.bat             ← EXE banane ke liye (ek baar)
+├── VoiceTranscription.exe← Taiyaar EXE (build ke baad)
+└── README.md             ← Yeh file
 ```
 
 ---
 
-## 🛠️ Technical
-
-| Part | Technology | Kyu? |
-|------|-----------|------|
-| Speech-to-Text | `Web Speech API` (browser built-in) | Windows 11 mein pehle se hai |
-| AI Response | Python rule-based engine | Koi model nahi, zero install |
-| Text-to-Speech | `PowerShell SAPI` (Windows built-in) | Python 3.14 compatible, pyttsx3 nahi |
-| Server | `Flask` (Python) | Sirf **2 packages** |
-
----
-
-*Made for Windows 11 | 100% Free | No Ollama | No Whisper | No API Key*
+*100% Free • Windows 11 • Google Speech API (internet needed) • Hindi + English*
