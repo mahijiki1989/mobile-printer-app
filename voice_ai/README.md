@@ -21,8 +21,10 @@ Aapke Windows 11 laptop ke liye ek Voice Assistant — jo **sirf browser aur Pyt
 
 ## 📋 Sirf Ek Cheez Chahiye
 
-### Python 3.8+
-👉 **https://www.python.org/downloads/**
+### Python 3.8+ (Python 3.14 ✅ fully supported)
+Agar pehle se installed hai → **seedha `start.bat` chalayein!**
+
+Nahi hai toh: 👉 **https://www.python.org/downloads/**
 
 > ⚠️ Install karte waqt **"Add Python to PATH"** ka tick **zaroor** lagayein!
 
@@ -107,7 +109,7 @@ Step 6:  🔊 [सुनें] dabayein — jawab awaaz mein sunein
 voice_ai/
 ├── start.bat          ← ▶ Yahi chalana hai (double-click)
 ├── voice_server.py    ← Python server (brain)
-├── requirements.txt   ← 3 packages ki list
+├── requirements.txt   ← 2 packages ki list
 ├── README.md          ← Yeh file
 └── static/
     ├── index.html     ← Browser UI
@@ -123,8 +125,8 @@ voice_ai/
 |------|-----------|------|
 | Speech-to-Text | `Web Speech API` (browser built-in) | Windows 11 mein pehle se hai |
 | AI Response | Python rule-based engine | Koi model nahi, zero install |
-| Text-to-Speech | `SpeechSynthesis` (browser) + Windows SAPI | Built-in, offline |
-| Server | `Flask` (Python) | Sirf 3 packages |
+| Text-to-Speech | `PowerShell SAPI` (Windows built-in) | Python 3.14 compatible, pyttsx3 nahi |
+| Server | `Flask` (Python) | Sirf **2 packages** |
 
 ---
 

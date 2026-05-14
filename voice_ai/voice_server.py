@@ -1,20 +1,20 @@
 """
 Voice AI Server — voice_server.py
-Windows 11 Built-in Only — Zero Extra Install
+Windows 11 Built-in Only — Python 3.14 Compatible
 
 Kya karta hai:
   /          → index.html serve karta hai (browser UI)
-  /ask       → AI jaisi simple responses deta hai (Python built-in only)
-  /speak     → Windows SAPI (pyttsx3) se TTS — browser TTS ka backup
+  /ask       → AI jaisi smart responses deta hai (pure Python)
+  /speak     → Windows PowerShell SAPI TTS (pyttsx3 ki zaroorat nahi!)
   /status    → health check
 
-Zaroorat:  Python 3.8+  +  flask  +  flask-cors  +  pyttsx3
-           (sirf yeh 3 packages — pip se install hote hain, koi bada model nahi)
+Zaroorat:  Python 3.14  +  flask  +  flask-cors
+           (sirf 2 packages! — TTS Windows PowerShell se hoga)
 """
 
 import os
 import re
-import json
+import subprocess
 import threading
 import datetime
 from flask import Flask, request, jsonify, send_from_directory
@@ -25,25 +25,48 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "static"))
 CORS(app)
 
-# ── TTS engine (lazy init — Windows SAPI) ─────────────────────────────────────
-_tts_lock   = threading.Lock()
-_tts_engine = None
+# ── TTS via Windows PowerShell SAPI — pyttsx3 ki zaroorat nahi ───────────────
+_tts_lock    = threading.Lock()
+_tts_process = None   # current speaking process
 
-def get_tts():
-    global _tts_engine
+def speak_via_powershell(text: str):
+    """
+    Windows built-in SAPI TTS using PowerShell.
+    Python 3.14 ke saath 100% compatible.
+    Koi extra package nahi chahiye.
+    """
+    global _tts_process
+    # Pehle chalu awaaz band karo
     with _tts_lock:
-        if _tts_engine is None:
-            import pyttsx3
-            _tts_engine = pyttsx3.init()
-            _tts_engine.setProperty("rate", 155)
-            _tts_engine.setProperty("volume", 1.0)
-            # Windows Hindi voice prefer karein agar available ho
-            voices = _tts_engine.getProperty("voices")
-            for v in voices:
-                if "hindi" in v.name.lower() or "heera" in v.name.lower():
-                    _tts_engine.setProperty("voice", v.id)
-                    break
-    return _tts_engine
+        if _tts_process and _tts_process.poll() is None:
+            _tts_process.terminate()
+
+    # Special characters escape karo PowerShell ke liye
+    safe_text = text.replace("'", "\\'").replace('"', '\\"').replace("`", "``")
+
+    ps_script = (
+        "Add-Type -AssemblyName System.Speech; "
+        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "$s.Rate = -1; "          # -10 (slow) to 10 (fast), -1 = thoda slow
+        "$s.Volume = 100; "
+        f"$s.Speak('{safe_text}');"
+    )
+
+    with _tts_lock:
+        _tts_process = subprocess.Popen(
+            ["powershell", "-WindowStyle", "Hidden", "-Command", ps_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+
+def stop_speaking():
+    """Chalu TTS band karo."""
+    global _tts_process
+    with _tts_lock:
+        if _tts_process and _tts_process.poll() is None:
+            _tts_process.terminate()
+            _tts_process = None
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -78,7 +101,8 @@ def ask():
 @app.route("/speak", methods=["POST"])
 def speak():
     """
-    Windows SAPI TTS — browser SpeechSynthesis ka backup.
+    Windows PowerShell SAPI TTS — pyttsx3 ki zaroorat nahi.
+    Python 3.14 ke saath 100% kaam karta hai.
     Laptop ke speakers par seedha bolega.
     """
     data = request.get_json(silent=True) or {}
@@ -86,22 +110,30 @@ def speak():
     if not text:
         return jsonify({"success": True})
 
-    def _run():
-        try:
-            engine = get_tts()
-            with _tts_lock:
-                engine.say(text)
-                engine.runAndWait()
-        except Exception as e:
-            print(f"[TTS] Error: {e}")
+    threading.Thread(
+        target=speak_via_powershell,
+        args=(text,),
+        daemon=True
+    ).start()
+    return jsonify({"success": True})
 
-    threading.Thread(target=_run, daemon=True).start()
+
+@app.route("/speak/stop", methods=["POST"])
+def speak_stop():
+    """Chalu TTS band karo."""
+    stop_speaking()
     return jsonify({"success": True})
 
 
 @app.route("/status", methods=["GET"])
 def status():
-    return jsonify({"server": "running", "tts": "windows-sapi", "stt": "web-speech-api"})
+    return jsonify({
+        "server": "running",
+        "python": "3.14+",
+        "tts": "windows-powershell-sapi",
+        "stt": "web-speech-api",
+        "packages_needed": ["flask", "flask-cors"]
+    })
 
 
 # ── Response Generator (Pure Python — No Model) ───────────────────────────────
