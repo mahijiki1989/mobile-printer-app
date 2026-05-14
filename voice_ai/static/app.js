@@ -3,7 +3,12 @@
  * Uses ONLY Windows 11 / Browser built-in APIs:
  *   • SpeechRecognition  → Web Speech API (Chrome/Edge built-in)
  *   • SpeechSynthesis    → Browser TTS (Windows SAPI voices)
- *   • Flask backend      → sirf TTS fallback ke liye (optional)
+ *   • Flask backend      → sirf AI response ke liye
+ *
+ * LONG SPEECH SUPPORT:
+ *   Browser ka Web Speech API ~60s baad khud ruk jaata hai.
+ *   Yahan hum NAYA instance banake seamlessly restart karte hain
+ *   taaki aap jitna chahein bolte rahein — transcript accumulate hota rahega.
  *
  * Koi install nahi — sirf Python + Edge/Chrome browser chahiye
  */
@@ -11,8 +16,8 @@
 'use strict';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const SERVER = 'http://localhost:5050';   // Python Flask server
-let currentLang = 'hi-IN';               // default: Hindi
+const SERVER = 'http://localhost:5050';
+let currentLang = 'hi-IN';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const micBtn       = document.getElementById('micBtn');
@@ -33,15 +38,24 @@ const btnHi        = document.getElementById('btnHi');
 const btnEn        = document.getElementById('btnEn');
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let recognition       = null;   // SpeechRecognition instance
-let isListening       = false;
-let finalTranscript   = '';     // confirmed text
-let interimTranscript = '';     // live in-progress text
+let recognition       = null;
+let isListening       = false;          // USER ka intention — kya sunna chahiye?
+let isRestarting      = false;          // auto-restart chal raha hai?
+
+// Transcript accumulator — RESTART ke baad bhi sab preserve rahega
+let accumulatedText   = '';             // confirmed final text (sab sessions)
+let sessionFinal      = '';             // current session ka confirmed text
+let sessionInterim    = '';             // current session ka live/interim text
+
 let lastAIResponse    = '';
 let isSpeaking        = false;
-let history           = [];     // [{role, content}]  conversation memory
+let history           = [];
 
-// ── Speech Recognition Setup ──────────────────────────────────────────────────
+// Timer display
+let timerInterval     = null;
+let recordingSeconds  = 0;
+
+// ── Speech Recognition API ───────────────────────────────────────────────────
 const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -56,69 +70,119 @@ if (!SpeechRecognition) {
   );
 }
 
+// ── Build a fresh SpeechRecognition instance ─────────────────────────────────
 function buildRecognition() {
   const r = new SpeechRecognition();
-  r.lang           = currentLang;
-  r.interimResults = true;   // live text dikhana
+  r.lang            = currentLang;
+  r.interimResults  = true;    // live text chahiye
   r.maxAlternatives = 1;
-  r.continuous     = true;   // ruke nahi — jab tak stop na karein
+  r.continuous      = true;    // browser ke andar bhi continuous rakhein
 
+  // First start — sirf agar nayi session hai (restart pe skip)
   r.onstart = () => {
-    isListening = true;
+    if (!isRestarting) {
+      // Bilkul nayi recording — sab reset
+      accumulatedText = '';
+      sessionFinal    = '';
+      sessionInterim  = '';
+      transcriptBar.classList.add('active');
+      copyBtn.style.display = 'none';
+      sendBtn.disabled = true;
+      startTimer();
+    }
+    isRestarting = false;
     setMicState(true);
-    setStatus('🎙️ Sun raha hoon...', 'listening');
-    liveText.textContent = 'बोलते रहें...';
-    transcriptBar.classList.add('active');
-    copyBtn.style.display = 'none';
-    finalTranscript = '';
-    interimTranscript = '';
+    setStatus('🎙️ सुन रहे हैं... बोलते रहें', 'listening');
+    renderLive();
   };
 
   r.onresult = (e) => {
-    interimTranscript = '';
+    sessionInterim = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = e.results[i][0].transcript;
       if (e.results[i].isFinal) {
-        finalTranscript += t + ' ';
+        sessionFinal += t;       // space automatically aata hai sentences mein
       } else {
-        interimTranscript += t;
+        sessionInterim += t;
       }
     }
-    // Show live: final (bold) + interim (muted)
-    liveText.innerHTML =
-      '<strong>' + escHtml(finalTranscript) + '</strong>' +
-      '<span style="opacity:0.55">' + escHtml(interimTranscript) + '</span>';
+    renderLive();
   };
 
   r.onerror = (e) => {
-    console.error('SpeechRecognition error:', e.error);
+    console.warn('SpeechRecognition error:', e.error);
+
     if (e.error === 'not-allowed') {
+      isListening = false;
+      stopTimer();
+      setMicState(false);
       setStatus('❌ Microphone blocked', 'error');
       alert(
         '❌ Microphone access nahi mila!\n\n' +
-        'Browser address bar mein lock icon click karke\n' +
+        'Browser address bar mein 🔒 lock icon click karke\n' +
         'Microphone = Allow karein, phir page refresh karein.'
       );
-    } else if (e.error === 'network') {
-      setStatus('⚠️ Network error (Edge offline mode try karein)', 'warn');
-    } else if (e.error === 'no-speech') {
-      setStatus('🤔 Koi awaaz nahi aayi, dobara koshish karein', 'warn');
-    } else {
-      setStatus('⚠️ ' + e.error, 'warn');
+      return;
     }
-    stopListening();
+
+    if (e.error === 'aborted') {
+      // Manual stop — ignore karo, onend handle karega
+      return;
+    }
+
+    // no-speech / network / other — agar user abhi bhi sunna chahta hai toh restart
+    if (isListening) {
+      scheduleRestart();
+    }
   };
 
   r.onend = () => {
-    // agar manual stop nahi ki to auto-restart (continuous stay)
+    // Session ka final text accumulate karo
+    accumulatedText += sessionFinal;
+    sessionFinal = '';
+    sessionInterim = '';
+
     if (isListening) {
-      try { r.start(); } catch (_) {}
+      // Browser ne khud band kiya (timeout) — restart karo seamlessly
+      scheduleRestart();
     } else {
+      // User ne khud roka — finish
       onRecordingFinished();
     }
   };
 
   return r;
+}
+
+// ── Seamless restart (browser timeout workaround) ────────────────────────────
+function scheduleRestart() {
+  if (!isListening) return;
+  isRestarting = true;
+  setStatus('🔄 जारी रख रहे हैं...', 'listening');
+
+  // Thodi delay — browser ko release karne ka time
+  setTimeout(() => {
+    if (!isListening) return;
+    recognition = buildRecognition();
+    try {
+      recognition.start();
+    } catch (err) {
+      console.error('Restart failed:', err);
+      // Ek aur try 500ms baad
+      setTimeout(() => {
+        if (!isListening) return;
+        recognition = buildRecognition();
+        try { recognition.start(); } catch (_) {
+          isListening = false;
+          isRestarting = false;
+          stopTimer();
+          setMicState(false);
+          setStatus('⚠️ Dobara mic dabayein', 'warn');
+          onRecordingFinished();
+        }
+      }, 500);
+    }
+  }, 150);
 }
 
 // ── Start / Stop Recording ────────────────────────────────────────────────────
@@ -132,40 +196,91 @@ function toggleRecording() {
 
 function startListening() {
   if (!SpeechRecognition) return;
-  finalTranscript   = '';
-  interimTranscript = '';
+  isListening   = true;
+  isRestarting  = false;
+  accumulatedText = '';
+  sessionFinal    = '';
+  sessionInterim  = '';
+
   recognition = buildRecognition();
   try {
     recognition.start();
   } catch (err) {
     console.error(err);
-    setStatus('❌ Mic shuru nahi hua', 'error');
+    isListening = false;
+    setStatus('❌ Mic shuru nahi hua — dobara koshish karein', 'error');
   }
 }
 
 function stopListening() {
-  isListening = false;
+  isListening  = false;
+  isRestarting = false;
+  stopTimer();
   if (recognition) {
     try { recognition.stop(); } catch (_) {}
   }
   setMicState(false);
+  // onend pe onRecordingFinished() call hoga
 }
 
 function onRecordingFinished() {
-  const text = (finalTranscript + interimTranscript).trim();
+  // Saara accumulated + current session ka text
+  const fullText = (accumulatedText + sessionFinal + sessionInterim).trim();
 
-  if (!text) {
+  if (!fullText) {
     liveText.textContent = 'कोई आवाज़ नहीं मिली — फिर कोशिश करें';
     transcriptBar.classList.remove('active');
     setStatus('तैयार है', 'idle');
     return;
   }
 
-  finalTranscript = text;
-  liveText.innerHTML = '<strong>' + escHtml(text) + '</strong>';
+  // Final state save
+  accumulatedText = fullText;
+  sessionFinal    = '';
+  sessionInterim  = '';
+
+  renderLive();
   copyBtn.style.display = 'inline-flex';
   sendBtn.disabled = false;
-  setStatus('✅ बात सुन ली — AI से पूछें', 'idle');
+  setStatus('✅ बात सुन ली — "AI से पूछें" दबाएँ', 'idle');
+}
+
+// ── Live render ───────────────────────────────────────────────────────────────
+function renderLive() {
+  const confirmed = accumulatedText + sessionFinal;
+  const live      = sessionInterim;
+
+  if (!confirmed && !live) {
+    liveText.innerHTML = '<span style="opacity:0.4">बोलते रहें...</span>';
+    return;
+  }
+
+  liveText.innerHTML =
+    escHtml(confirmed) +
+    (live
+      ? '<span style="opacity:0.5; font-style:italic"> ' + escHtml(live) + '</span>'
+      : '');
+}
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+function startTimer() {
+  recordingSeconds = 0;
+  const timerEl = document.getElementById('timer');
+  const timerDisplay = document.getElementById('timerDisplay');
+  if (timerEl) timerEl.style.display = 'flex';
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    recordingSeconds++;
+    const m = Math.floor(recordingSeconds / 60);
+    const s = recordingSeconds % 60;
+    if (timerDisplay) timerDisplay.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  const timerEl = document.getElementById('timer');
+  if (timerEl) timerEl.style.display = 'none';
 }
 
 // ── Language Switch ───────────────────────────────────────────────────────────
@@ -173,13 +288,12 @@ function setLang(lang) {
   currentLang = lang;
   btnHi.classList.toggle('active', lang === 'hi-IN');
   btnEn.classList.toggle('active', lang === 'en-US');
-  // Also update TTS voice preference
   preferredVoice = pickVoice(lang);
 }
 
 // ── Send to AI ────────────────────────────────────────────────────────────────
 async function sendToAI() {
-  const text = finalTranscript.trim();
+  const text = accumulatedText.trim();
   if (!text) return;
 
   // Hide welcome card
@@ -396,7 +510,9 @@ function setStatus(msg, state) {
 }
 
 function resetTranscriptBar() {
-  finalTranscript = '';
+  accumulatedText = '';
+  sessionFinal    = '';
+  sessionInterim  = '';
   liveText.textContent = 'यहाँ आपकी आवाज़ live दिखेगी...';
   transcriptBar.classList.remove('active');
   copyBtn.style.display = 'none';
@@ -415,8 +531,9 @@ function clearChat() {
 }
 
 function copyTranscript() {
-  if (!finalTranscript) return;
-  navigator.clipboard.writeText(finalTranscript).then(() => {
+  const text = accumulatedText.trim();
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
     copyBtn.textContent = '✅';
     setTimeout(() => { copyBtn.textContent = '📋'; }, 1500);
   });

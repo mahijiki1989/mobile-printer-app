@@ -495,6 +495,16 @@ kbd {
   font-family: 'Inter', monospace;
 }
 
+/* Timer – shown while recording */
+#timer {
+  display: none;   /* shown via JS */
+}
+
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.2; }
+}
+
 /* ════════════════════════════════════════
    RESPONSIVE
    ════════════════════════════════════════ */
