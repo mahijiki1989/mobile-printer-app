@@ -1,0 +1,7 @@
+# Voice AI — Windows 11 Built-in
+# Python 3.14 ke saath tested
+# Sirf YEH 2 packages chahiye — koi model, koi pyttsx3, koi bada download nahi!
+# TTS = Windows PowerShell SAPI (built-in), STT = Browser Web Speech API (built-in)
+
+flask>=3.0.0
+flask-cors>=4.0.0

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice AI — Windows 11</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎙️</div>
+      <div>
+        <h1>Voice AI</h1>
+        <p>Windows 11 Built-in • Free • No Install</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="lang-toggle">
+        <button class="lang-btn active" id="btnHi" onclick="setLang('hi-IN')">हिंदी</button>
+        <button class="lang-btn" id="btnEn" onclick="setLang('en-US')">English</button>
+      </div>
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusLabel">तैयार है</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Chat Window ── -->
+  <main class="chat-window" id="chatWindow">
+
+    <div class="welcome" id="welcomeCard">
+      <div class="welcome-icon">🤖</div>
+      <h2>नमस्ते! मैं आपका Voice AI हूँ</h2>
+      <p>नीचे माइक बटन दबाएँ और बोलना शुरू करें।<br/>
+         Hindi या English — दोनों में बात कर सकते हैं।</p>
+      <div class="tips">
+        <div class="tip">🎤 बोलते रहें — जितना चाहें</div>
+        <div class="tip">🔊 जवाब सुन भी सकते हैं</div>
+        <div class="tip">💻 कोई install नहीं</div>
+        <div class="tip">🔒 Data safe रहता है</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Live Transcript Bar ── -->
+  <div class="transcript-bar" id="transcriptBar">
+    <span class="transcript-icon">💬</span>
+    <span id="liveText">यहाँ आपकी आवाज़ live दिखेगी...</span>
+    <button class="copy-btn" id="copyBtn" title="Copy" onclick="copyTranscript()" style="display:none">📋</button>
+  </div>
+
+  <!-- ── Controls ── -->
+  <footer class="controls">
+
+    <!-- Mic Button -->
+    <div class="mic-wrap">
+      <button class="mic-btn" id="micBtn" onclick="toggleRecording()">
+        <span class="mic-icon" id="micIcon">🎤</span>
+        <span class="mic-label" id="micLabel">बोलें</span>
+        <div class="mic-ring" id="micRing"></div>
+      </button>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-row">
+
+      <button class="action-btn send-btn" id="sendBtn" onclick="sendToAI()" disabled>
+        <span>🤖</span>
+        <span>AI से पूछें</span>
+      </button>
+
+      <button class="action-btn speak-btn" id="speakBtn" onclick="speakLastResponse()" disabled>
+        <span>🔊</span>
+        <span>सुनें</span>
+      </button>
+
+      <button class="action-btn stop-btn" id="stopSpeakBtn" onclick="stopSpeaking()" style="display:none">
+        <span>⏹️</span>
+        <span>रोकें</span>
+      </button>
+
+      <button class="action-btn clear-btn" onclick="clearChat()">
+        <span>🗑️</span>
+        <span>Clear</span>
+      </button>
+
+    </div>
+
+    <!-- Keyboard hint -->
+    <div class="kbd-hints">
+      <kbd>Space</kbd> बोलें/रोकें &nbsp;|&nbsp;
+      <kbd>Enter</kbd> AI से पूछें &nbsp;|&nbsp;
+      <kbd>S</kbd> सुनें
+    </div>
+
+    <!-- Recording timer (long speech indicator) -->
+    <div id="timer" style="display:none; text-align:center; font-size:0.78rem; color:#ef4444; align-items:center; justify-content:center; gap:0.4rem;">
+      <span style="display:inline-block; animation: blink 1s infinite;">🔴</span>
+      Recording: <strong id="timerDisplay">0:00</strong>
+      &nbsp;<span style="opacity:0.55">— जितना चाहें बोलते रहें!</span>
+    </div>
+
+  </footer>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
