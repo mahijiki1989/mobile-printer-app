@@ -1,0 +1,18 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+# but keep dist-zip/ which holds the published source archive
+!dist-zip/
+!dist-zip/*
+*.spec.bak
+.gae_local/
+*.sqlite3
+*.sqlite3-journal
+logs/
