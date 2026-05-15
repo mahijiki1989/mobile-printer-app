@@ -1,0 +1,27 @@
+# --- Groww Auto-Exit runtime dependencies ---
+
+# Groww official Python SDK
+growwapi>=0.1.0
+
+# Desktop UI
+PySide6>=6.6.0
+
+# Config and secrets
+python-dotenv>=1.0.1
+keyring>=24.3.0
+pydantic>=2.6.0
+
+# Notifications
+plyer>=2.1.0
+
+# HTTP / resilience helpers (used by adapter and tests)
+requests>=2.31.0
+tenacity>=8.2.3
+
+# Packaging (Windows)
+pyinstaller>=6.4.0
+
+# --- dev / test ---
+pytest>=8.0.0
+pytest-qt>=4.4.0
+freezegun>=1.4.0
