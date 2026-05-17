@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎬 Interactive Trade Walkthrough - RSI Strategy</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --panel: #111827;
+  --panel2: #1a2235;
+  --border: #1e3a5f;
+  --green: #00e676;
+  --red: #ff1744;
+  --blue: #2196f3;
+  --gold: #ffc107;
+  --orange: #ff9800;
+  --cyan: #00bcd4;
+  --purple: #9c27b0;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* ============== HERO ============== */
+.hero {
+  background: linear-gradient(135deg, #0d1f35 0%, #0a1628 100%);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  border-bottom: 2px solid var(--border);
+}
+.hero h1 {
+  font-size: clamp(1.5rem, 4vw, 2.4rem);
+  font-weight: 800;
+  background: linear-gradient(135deg, #00e676, #2196f3, #ffc107);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+}
+.hero p { color: var(--muted); font-size: 0.95rem; }
+.back-link {
+  display: inline-block;
+  margin-top: 0.75rem;
+  color: var(--cyan);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--cyan);
+  border-radius: 50px;
+}
+.back-link:hover { background: rgba(0,188,212,0.1); }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+
+/* ============== TRADE TABS ============== */
+.tab-bar {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.4rem;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.tab-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 0.7rem 0.8rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-btn:hover { background: rgba(33,150,243,0.08); color: var(--text); }
+.tab-btn.active {
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  color: white;
+  box-shadow: 0 4px 14px rgba(33,150,243,0.4);
+}
+
+/* ============== TRADE PANEL ============== */
+.trade-panel {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+.trade-panel.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============== TRADE HEADER ============== */
+.trade-header {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.trade-title { font-size: 1.15rem; font-weight: 700; }
+.trade-title small { display: block; color: var(--muted); font-weight: 400; font-size: 0.8rem; margin-top: 0.2rem; }
+.trade-tag {
+  padding: 0.4rem 1rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.tag-win { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid var(--green); }
+.tag-loss { background: rgba(255,23,68,0.15); color: var(--red); border: 1px solid var(--red); }
+.tag-tg2 { background: rgba(255,193,7,0.15); color: var(--gold); border: 1px solid var(--gold); }
+
+/* ============== CHART AREA ============== */
+.chart-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.chart-card h3 {
+  font-size: 1rem;
+  color: var(--cyan);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+canvas { width: 100% !important; }
+
+/* ============== STEP CONTROLS ============== */
+.controls {
+  background: linear-gradient(135deg, #0d1f35, #0a1628);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.btn-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.btn {
+  padding: 0.7rem 1.2rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.btn-play { background: linear-gradient(135deg, var(--green), #00c853); color: #002912; }
+.btn-play:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,230,118,0.4); }
+.btn-prev, .btn-next { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+.btn-prev:hover, .btn-next:hover { border-color: var(--blue); background: rgba(33,150,243,0.1); }
+.btn-reset { background: rgba(255,23,68,0.1); color: var(--red); border: 1px solid var(--red); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+.progress {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.dot {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+.dot.done { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+.dot.current { background: linear-gradient(90deg, var(--gold), var(--orange)); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* ============== STEP NARRATION ============== */
+.step-box {
+  background: var(--panel2);
+  border-radius: 12px;
+  padding: 1.25rem;
+  border-left: 4px solid var(--gold);
+  min-height: 120px;
+  transition: border-color 0.3s;
+}
+.step-box.entry-step { border-left-color: var(--blue); }
+.step-box.sl-step { border-left-color: var(--red); }
+.step-box.tg-step { border-left-color: var(--green); }
+.step-box.rsi-step { border-left-color: var(--orange); }
+.step-num {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  background: rgba(255,193,7,0.15);
+  color: var(--gold);
+  border-radius: 50px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.step-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+.step-desc {
+  color: var(--muted);
+  font-size: 0.93rem;
+  margin-bottom: 0.6rem;
+}
+.step-data {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+.data-pill {
+  padding: 0.3rem 0.8rem;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(33,150,243,0.1);
+  border: 1px solid var(--blue);
+  color: var(--blue);
+}
+.data-pill.green { background: rgba(0,230,118,0.1); border-color: var(--green); color: var(--green); }
+.data-pill.red { background: rgba(255,23,68,0.1); border-color: var(--red); color: var(--red); }
+.data-pill.gold { background: rgba(255,193,7,0.1); border-color: var(--gold); color: var(--gold); }
+.data-pill.orange { background: rgba(255,152,0,0.1); border-color: var(--orange); color: var(--orange); }
+
+/* ============== TRADE SUMMARY ============== */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.sum-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem;
+  text-align: center;
+}
+.sum-box .lbl { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+.sum-box .val { font-size: 1.15rem; font-weight: 800; margin-top: 0.2rem; }
+.sum-entry .val { color: var(--blue); }
+.sum-sl    .val { color: var(--red); }
+.sum-t1    .val { color: var(--green); }
+.sum-t2    .val { color: var(--gold); }
+.sum-pnl   { background: linear-gradient(135deg, rgba(0,230,118,0.1), rgba(0,188,212,0.1)); border-color: var(--green); }
+.sum-pnl.loss-pnl { background: linear-gradient(135deg, rgba(255,23,68,0.1), rgba(255,152,0,0.1)); border-color: var(--red); }
+.sum-pnl .val { color: var(--green); }
+.sum-pnl.loss-pnl .val { color: var(--red); }
+
+footer {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <h1>🎬 Interactive Trade Walkthrough</h1>
+  <p>Har trade ko step-by-step animation me dekho — RSI kahan gaya, entry kab, SL/Target kaise hit hua</p>
+  <a href="strategy.html" class="back-link">← Strategy guide pe wapas</a>
+</section>
+
+<div class="container">
+
+  <!-- TAB BAR -->
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-trade="0">📌 Trade 1<br><small style="font-size:0.7rem; opacity:0.7">T1 Win</small></button>
+    <button class="tab-btn" data-trade="1">📌 Trade 2<br><small style="font-size:0.7rem; opacity:0.7">SL Hit</small></button>
+    <button class="tab-btn" data-trade="2">📌 Trade 3<br><small style="font-size:0.7rem; opacity:0.7">T2 Hit 🏆</small></button>
+    <button class="tab-btn" data-trade="3">📌 Trade 4<br><small style="font-size:0.7rem; opacity:0.7">T1 Win</small></button>
+    <button class="tab-btn" data-trade="4">📌 Trade 5<br><small style="font-size:0.7rem; opacity:0.7">T1 Win</small></button>
+  </div>
+
+  <!-- TRADE PANELS (one per trade) -->
+  <div id="tradeContainer"></div>
+
+</div>
+
+<footer>
+  📚 <strong>Learn by watching</strong> — Each trade animation shows exactly what happened, when, and why.
+</footer>
+
+<script>
+// ============================================
+// TRADE DATA — 5 detailed scenarios with full step-by-step
+// ============================================
+const TRADES = [
+  // ==================== TRADE 1: T1 WIN ====================
+  {
+    id: 1,
+    title: 'Trade #1 — Clean T1 Hit',
+    subtitle: '30m RSI bearish + 10m RSI 60 false break',
+    type: 'win',
+    tag: 'WIN ✅',
+    tagClass: 'tag-win',
+    entry: 22500, sl: 22550, t1: 22400, t2: 22350,
+    pnl: '+100 pts (₹3,750/lot)',
+    pnlClass: '',
+    // 13 candles of 10-min data
+    labels: ['10:00','10:10','10:20','10:30','10:40','10:50','11:00','11:10','11:20','11:30','11:40','11:50','12:00'],
+    price: [22510, 22515, 22520, 22530, 22542, 22548, 22538, 22515, 22490, 22460, 22430, 22410, 22400],
+    rsi:   [52,    54,    56,    58,    61,    63,    58,    54,    50,    46,    43,    41,    40],
+    // Steps to play through
+    steps: [
+      {
+        type: 'rsi-step', range: [0, 3],
+        title: '📊 Step 1: 30m Bias Check',
+        desc: 'Trading start karne se pehle 30 minute chart pe RSI dekha — RSI value 48 thi (60 ke neeche). Iska matlab market <b>bearish/weak</b> hai. Ab hum sirf <b>SHORT side</b> dekh rahe hai.',
+        pills: [['30m RSI', '48', 'orange'], ['Bias', 'BEARISH', 'red'], ['Action', 'Short side dekho', 'gold']]
+      },
+      {
+        type: 'rsi-step', range: [0, 4],
+        title: '⚡ Step 2: 10m RSI Climbing',
+        desc: 'Ab 10 minute chart kholi. Dekho RSI dheere-dheere upar ja raha hai — 52 se 56 se 58. Lekin ye chhote pullbacks hai bearish trend me. Wait karo aur observe karo.',
+        pills: [['10m RSI', '52 → 58', 'orange'], ['Price', '22,510 → 22,530', 'blue']]
+      },
+      {
+        type: 'rsi-step', range: [0, 5],
+        title: '🚨 Step 3: RSI 60 BREAK!',
+        desc: '<b style="color:var(--gold)">Ye dekho!</b> 10:40 pe RSI 60 ko break karke <b>61</b> pe gaya, fir 10:50 pe aur upar <b>63</b> tak. Ye <b>false breakout</b> hai. Ab dhyan se dekhna — RSI wapas neeche aata hai ya nahi.',
+        pills: [['10m RSI', '63 (peak)', 'red'], ['Status', 'False breakout?', 'gold'], ['Action', 'Wait for reversal', 'orange']]
+      },
+      {
+        type: 'entry-step', range: [0, 6], highlight: 6,
+        title: '🎯 Step 4: ENTRY TRIGGER!',
+        desc: '<b style="color:var(--red)">11:00 candle close ho gayi!</b> RSI <b>58</b> pe close hua — 60 ke neeche wapas! Yahi entry signal hai. Price <b>22,538</b> pe SHORT le liya (PUT buy / Future sell).',
+        pills: [['10m RSI Close', '58', 'green'], ['Entry Price', '₹22,500', 'blue'], ['Action', 'SHORT TRIGGERED 🔻', 'red']]
+      },
+      {
+        type: 'sl-step', range: [0, 6], highlight: 6,
+        title: '🛡️ Step 5: Stop Loss Lagaya',
+        desc: 'Recent swing high <b>22,548</b> tha (10:50 candle ka high). SL usse 2 points upar lagaya = <b>22,550</b>. Risk per lot = 50 points = ₹3,750. Ye SL broker me actual order me daala — mental SL nahi!',
+        pills: [['SL Level', '₹22,550', 'red'], ['Risk', '50 pts (₹3,750)', 'red'], ['Order Type', 'Bracket / GTT', 'gold']]
+      },
+      {
+        type: 'tg-step', range: [0, 6], highlight: 6,
+        title: '🎯 Step 6: Targets Calculate Kiye',
+        desc: 'Risk = 50 pts. Iska 2x = 100 pts (T1 = 22,500 - 100 = <b>22,400</b>). Risk ka 3x = 150 pts (T2 = <b>22,350</b>). T1 pe 50% qty book karunga, baki 50% ka SL trail karke T2 tak rakhunga.',
+        pills: [['Target 1 (1:2)', '₹22,400', 'green'], ['Target 2 (1:3)', '₹22,350', 'gold'], ['Strategy', '50% T1 + Trail', 'blue']]
+      },
+      {
+        type: 'rsi-step', range: [0, 9],
+        title: '📉 Step 7: Price Falling',
+        desc: 'Trade open hone ke baad market ne hamare favor me move kiya. Price <b>22,538 → 22,490 → 22,460</b> tak gir gayi. RSI bhi 54 → 50 → 46 ho gayi. Trade chal raha hai apne plan ke according.',
+        pills: [['Price', '22,538 → 22,460', 'green'], ['10m RSI', '54 → 46', 'green'], ['Status', 'Going as planned ✓', 'green']]
+      },
+      {
+        type: 'tg-step', range: [0, 12], highlight: 12,
+        title: '🏆 Step 8: TARGET 1 HIT!',
+        desc: '<b style="color:var(--green)">12:00 pe price 22,400 ko touch kar gayi!</b> Target 1 hit. 50% qty exit kar di — profit booked. Baki 50% qty ke liye SL ko cost-to-cost (entry pe = 22,500) le aaya — <b>risk-free trade</b>!',
+        pills: [['T1 Hit @', '₹22,400', 'green'], ['50% qty exit', '+₹1,875', 'green'], ['Trail SL to', '₹22,500 (BE)', 'blue']]
+      },
+      {
+        type: 'tg-step', range: [0, 12], highlight: 12,
+        title: '✅ Step 9: Final Result',
+        desc: 'Price T1 ke baad consolidate ho gayi 22,400 ke aas paas. T2 tak gayi nahi. 3:15 PM ko remaining 50% qty bhi 22,400 pe square off kar di. <b style="color:var(--green)">Total profit = +100 pts × 75 = ₹7,500</b> per Nifty lot.',
+        pills: [['Total P&L', '+100 pts', 'green'], ['Per Lot Profit', '₹7,500', 'green'], ['Win Rate Today', '100% ✅', 'gold']]
+      }
+    ]
+  },
+
+  // ==================== TRADE 2: SL HIT ====================
+  {
+    id: 2,
+    title: 'Trade #2 — Stop Loss Hit',
+    subtitle: 'Setup tha sahi, but market reversed — risk control kaam aaya',
+    type: 'loss',
+    tag: 'SL HIT ❌',
+    tagClass: 'tag-loss',
+    entry: 22620, sl: 22665, t1: 22530, t2: 22485,
+    pnl: '-45 pts (-₹3,375/lot)',
+    pnlClass: 'loss-pnl',
+    labels: ['11:00','11:10','11:20','11:30','11:40','11:50','12:00','12:10','12:20','12:30','12:40','12:50','1:00'],
+    price: [22640, 22645, 22650, 22660, 22663, 22660, 22645, 22625, 22640, 22655, 22665, 22680, 22695],
+    rsi:   [54,    56,    58,    61,    62,    61,    58,    54,    57,    61,    65,    68,    70],
+    steps: [
+      {
+        type: 'rsi-step', range: [0, 3],
+        title: '📊 Step 1: Setup Bana',
+        desc: '30m chart pe RSI 55 thi (60 ke neeche). Bias still bearish/sideways. 10m chart pe RSI 60 ko break karke 62 tak gaya — false breakout dikh raha tha.',
+        pills: [['30m RSI', '55', 'orange'], ['10m Peak RSI', '62', 'red'], ['Setup', 'Looks valid', 'gold']]
+      },
+      {
+        type: 'entry-step', range: [0, 6], highlight: 6,
+        title: '🎯 Step 2: Entry Liya',
+        desc: '12:00 pe 10m candle 58 RSI pe close hui — 60 ke neeche. Strategy ke according SHORT entry liya <b>22,620</b> pe. Sab ekdum textbook setup tha.',
+        pills: [['Entry', '₹22,620', 'blue'], ['10m RSI Close', '58', 'orange'], ['Action', 'SHORT', 'red']]
+      },
+      {
+        type: 'sl-step', range: [0, 6], highlight: 6,
+        title: '🛡️ Step 3: SL & Targets',
+        desc: 'Recent swing high 22,663 tha. SL = 22,665 (45 points risk). T1 (1:2) = 22,530, T2 (1:3) = 22,485. Bracket order set kiya.',
+        pills: [['SL', '₹22,665', 'red'], ['Risk', '45 pts', 'red'], ['T1', '₹22,530', 'green']]
+      },
+      {
+        type: 'rsi-step', range: [0, 7],
+        title: '📉 Step 4: Initially Working!',
+        desc: '12:00 → 12:10 me price 22,620 → 22,625 ho gayi (almost flat). 12:10 candle pe price 22,625 — bilkul entry ke aas paas. Patience rakha.',
+        pills: [['Price', '₹22,625', 'orange'], ['10m RSI', '54', 'orange'], ['Status', 'Sideways', 'gold']]
+      },
+      {
+        type: 'rsi-step', range: [0, 9],
+        title: '⚠️ Step 5: Reversal Shuru!',
+        desc: '<b style="color:var(--red)">Yahan se trouble shuru!</b> 12:30 pe RSI wapas 61 cross kar gaya. Price 22,655 tak gayi. Trade against ja rahi thi. Lekin SL hatana NAHI hai — discipline maintain.',
+        pills: [['Price', '₹22,655', 'red'], ['10m RSI', '61 (back above 60)', 'red'], ['Action', 'HOLD (SL active)', 'gold']]
+      },
+      {
+        type: 'sl-step', range: [0, 10], highlight: 10,
+        title: '💥 Step 6: STOP LOSS HIT!',
+        desc: '12:40 candle me price 22,665 ko touch kar gayi — <b style="color:var(--red)">SL HIT!</b> Position auto-square off ho gayi. Loss = 45 points. Bus, finished. Koi emotion nahi, koi argue nahi — discipline!',
+        pills: [['SL Hit @', '₹22,665', 'red'], ['Loss per lot', '-₹3,375', 'red'], ['Status', 'EXITED ✋', 'red']]
+      },
+      {
+        type: 'rsi-step', range: [0, 12],
+        title: '🤯 Step 7: Imagine Without SL!',
+        desc: 'SL nahi rakhte to kya hota? Dekho — price 22,665 → 22,695 chali gayi! Loss <b>75 points</b> ho jata, ya emotional ho ke aur badha lete. <b style="color:var(--green)">SL ne tumhe bachaya</b> — yahi reason hai SL kabhi hatana nahi!',
+        pills: [['Price reached', '₹22,695', 'red'], ['Saved by SL', '+30 pts', 'green'], ['Lesson', 'SL = lifesaver', 'gold']]
+      },
+      {
+        type: 'sl-step', range: [0, 12], highlight: 10,
+        title: '📚 Step 8: Final Math',
+        desc: 'Loss = 45 pts (₹3,375/lot). Lekin remember: 1:2 RR me sirf <b>34% win rate</b> chahiye breakeven ke liye. Trade #1 ne 100 pts diye, ye 45 pts liya — <b>net +55 pts</b> still! Ek loss se demoralize mat ho.',
+        pills: [['Trade Loss', '-45 pts', 'red'], ['After Trade #1', 'Net +55 pts', 'green'], ['Mindset', 'Trust the system', 'gold']]
+      }
+    ]
+  },
+
+  // ==================== TRADE 3: T2 HIT (HOME RUN) ====================
+  {
+    id: 3,
+    title: 'Trade #3 — Full T2 Hit (Big Win)',
+    subtitle: 'Strong trend ne 1:3 reward de diya — perfect execution',
+    type: 'tg2',
+    tag: 'T2 HIT 🏆',
+    tagClass: 'tag-tg2',
+    entry: 22480, sl: 22520, t1: 22400, t2: 22360,
+    pnl: '+120 pts (₹9,000/lot)',
+    pnlClass: '',
+    labels: ['10:30','10:40','10:50','11:00','11:10','11:20','11:30','11:40','11:50','12:00','12:10','12:20','12:30'],
+    price: [22500, 22505, 22512, 22518, 22515, 22500, 22480, 22455, 22430, 22410, 22390, 22375, 22360],
+    rsi:   [50,    52,    55,    61,    60,    57,    53,    48,    44,    41,    38,    35,    33],
+    steps: [
+      {
+        type: 'rsi-step', range: [0, 3],
+        title: '📊 Step 1: Strong Bearish Setup',
+        desc: '30m RSI sirf <b>51</b> thi — clearly bearish zone me. Market sentiment bhi bearish news ke saath set tha. Ye din special tha — high quality setup banne wala.',
+        pills: [['30m RSI', '51', 'orange'], ['Sentiment', 'Strong bearish', 'red'], ['Quality', 'Grade A setup', 'gold']]
+      },
+      {
+        type: 'rsi-step', range: [0, 4],
+        title: '⚡ Step 2: 60 Touch & Reject',
+        desc: '11:00 pe RSI ne 60 ko touch kiya (61 tak gaya), lekin <b>turant reject ho gaya!</b> Yeh shows bearish strength bahut zyada hai. 11:10 ki candle 60 pe close hui.',
+        pills: [['Peak RSI', '61', 'red'], ['Time at 60+', 'Just 1 candle', 'green'], ['Strength', 'Strong rejection', 'gold']]
+      },
+      {
+        type: 'entry-step', range: [0, 6], highlight: 6,
+        title: '🎯 Step 3: ENTRY @ 22,480',
+        desc: '11:30 pe candle close hui RSI <b>53</b> pe — 60 se kafi neeche. Aggressive bearish. Entry liya <b>SHORT @ 22,480</b>. Confidence high tha is setup pe.',
+        pills: [['Entry', '₹22,480', 'blue'], ['10m RSI', '53', 'green'], ['Confidence', 'HIGH 💪', 'gold']]
+      },
+      {
+        type: 'sl-step', range: [0, 6], highlight: 6,
+        title: '🛡️ Step 4: Tight SL',
+        desc: 'Swing high 22,518 tha. SL = 22,520 (sirf 40 points!). Tight SL = bigger reward potential. T1 = 22,400 (80 pts), T2 = 22,360 (120 pts).',
+        pills: [['SL', '₹22,520', 'red'], ['Risk', '40 pts only', 'orange'], ['T2 Reward', '120 pts', 'green']]
+      },
+      {
+        type: 'rsi-step', range: [0, 9],
+        title: '📉 Step 5: Powerful Move Down',
+        desc: 'Ek dum strong bearish move! Price <b>22,480 → 22,455 → 22,430 → 22,410</b> bilkul straight neeche. RSI 53 → 48 → 44 → 41. Bears in full control!',
+        pills: [['Price', '22,480 → 22,410', 'green'], ['RSI Drop', '53 → 41', 'green'], ['Move type', 'Strong impulsive 🚀', 'gold']]
+      },
+      {
+        type: 'tg-step', range: [0, 9], highlight: 9,
+        title: '🎯 Step 6: T1 HIT @ 22,400',
+        desc: '12:00 pe price 22,400 hit ho gayi — <b>T1 hit!</b> 50% qty book ki (+80 pts × 25 = ₹2,000 per half lot). Baki 50% ke liye SL ko entry pe (22,480) trail kiya.',
+        pills: [['T1 Hit', '₹22,400', 'green'], ['Booked', '+80 pts', 'green'], ['New SL', '₹22,480 (BE)', 'blue']]
+      },
+      {
+        type: 'rsi-step', range: [0, 11],
+        title: '🔥 Step 7: Trend Continues!',
+        desc: 'Maine remaining 50% ko hold kiya. Aur dekho! Price further <b>22,390 → 22,375</b>. RSI 38 → 35 — oversold zone ke close pahuch rahi thi. Lekin trend strong tha to hold kiya.',
+        pills: [['Price', '22,375 (continuing)', 'green'], ['RSI', '35 (low)', 'green'], ['Action', 'HOLD remaining 50%', 'gold']]
+      },
+      {
+        type: 'tg-step', range: [0, 12], highlight: 12,
+        title: '🏆 Step 8: T2 HIT! BIG WIN!',
+        desc: '<b style="color:var(--gold); font-size:1.1em">12:30 pe price 22,360 hit ho gayi — TARGET 2 HIT!</b> Remaining 50% bhi exit. Total profit calculation: 50% × 80 pts + 50% × 120 pts = <b>100 pts average</b>. Total per lot = ₹7,500. <b style="color:var(--gold)">Best trade of the day!</b>',
+        pills: [['T2 Hit', '₹22,360', 'gold'], ['Total P&L', '+100 pts avg', 'green'], ['Per lot', '₹7,500 🎉', 'gold']]
+      }
+    ]
+  },
+
+  // ==================== TRADE 4: T1 WIN (CLEAN) ====================
+  {
+    id: 4,
+    title: 'Trade #4 — Quick T1 Hit',
+    subtitle: 'Fast move, fast exit — efficient trade',
+    type: 'win',
+    tag: 'WIN ✅',
+    tagClass: 'tag-win',
+    entry: 22700, sl: 22740, t1: 22620, t2: 22580,
+    pnl: '+80 pts (₹6,000/lot)',
+    pnlClass: '',
+    labels: ['11:30','11:40','11:50','12:00','12:10','12:20','12:30','12:40','12:50','1:00','1:10','1:20','1:30'],
+    price: [22720, 22725, 22730, 22735, 22738, 22735, 22720, 22695, 22675, 22655, 22640, 22625, 22620],
+    rsi:   [56,    58,    59,    61,    62,    60,    57,    53,    49,    45,    42,    40,    39],
+    steps: [
+      {
+        type: 'rsi-step', range: [0, 3],
+        title: '📊 Step 1: Setup Identification',
+        desc: '30m RSI 58 (60 ke just neeche). 10m chart pe RSI gradually 56 → 58 → 59 chad raha tha. Lagta tha 60 break karega.',
+        pills: [['30m RSI', '58', 'orange'], ['10m Trend', 'Climbing 📈', 'orange'], ['Watch', 'Wait for trigger', 'gold']]
+      },
+      {
+        type: 'rsi-step', range: [0, 5],
+        title: '⚡ Step 2: 60 Break + Reject',
+        desc: '12:00 pe RSI 61 hit, 12:10 pe peak 62. Phir 12:20 candle ne 60 ko break karke 60 pe close kiya. Ekdum sharp rejection.',
+        pills: [['Peak RSI', '62', 'red'], ['Reject Time', '12:20', 'gold'], ['Pattern', 'Sharp reject', 'orange']]
+      },
+      {
+        type: 'entry-step', range: [0, 6], highlight: 6,
+        title: '🎯 Step 3: Entry @ 22,700',
+        desc: '12:30 ki candle ne <b>57 RSI</b> pe close kiya. SHORT entry @ 22,700. Swing high 22,738 tha — SL 22,740 lagaya (40 pts risk). Targets calculate: T1 = 22,620, T2 = 22,580.',
+        pills: [['Entry', '₹22,700', 'blue'], ['SL', '₹22,740', 'red'], ['Risk', '40 pts', 'red']]
+      },
+      {
+        type: 'sl-step', range: [0, 6], highlight: 6,
+        title: '🛡️ Step 4: Risk Defined',
+        desc: 'Risk per lot = 40 × 75 = ₹3,000. Capital ka <b>1.5%</b> max risk pe rakha. T1 reward = 80 pts (₹6,000), T2 reward = 120 pts (₹9,000). RR 1:2 / 1:3.',
+        pills: [['Risk', '₹3,000', 'red'], ['T1 Reward', '₹6,000', 'green'], ['Max RR', '1:3', 'gold']]
+      },
+      {
+        type: 'rsi-step', range: [0, 9],
+        title: '📉 Step 5: Smooth Decline',
+        desc: 'Price ne smoothly decline kiya — 22,700 → 22,695 → 22,675 → 22,655. RSI bhi consistently neeche aayi. Koi sharp counter-move nahi. Easy ride.',
+        pills: [['Price drop', '45 pts', 'green'], ['Time taken', '30 min', 'blue'], ['Volatility', 'Low ✓', 'green']]
+      },
+      {
+        type: 'tg-step', range: [0, 12], highlight: 12,
+        title: '🎯 Step 6: T1 HIT @ 22,620',
+        desc: '1:30 pe price 22,620 ko touch kar gayi — <b>T1 hit!</b> Sara qty exit kar diya is baar (T2 ke chakkar me nahi pada — already accha profit tha). +80 pts × 75 = <b>₹6,000 per lot</b>.',
+        pills: [['T1 Hit', '₹22,620', 'green'], ['Profit', '+80 pts', 'green'], ['Per lot', '₹6,000 ✅', 'gold']]
+      },
+      {
+        type: 'tg-step', range: [0, 12], highlight: 12,
+        title: '✅ Step 7: Trade Closed',
+        desc: 'Trade total time = ~1 hour. Quick, efficient, profitable. Yehi RSI strategy ka magic hai — <b>multi-timeframe alignment + price action discipline</b>. Day me aise 1-2 trades enough hai.',
+        pills: [['Duration', '1 hour', 'blue'], ['Result', 'WIN +₹6,000', 'green'], ['Quality', 'Textbook ✓', 'gold']]
+      }
+    ]
+  },
+
+  // ==================== TRADE 5: ANOTHER T1 WIN ====================
+  {
+    id: 5,
+    title: 'Trade #5 — Bearish Continuation',
+    subtitle: 'Already trending market me trigger aaya, easy money',
+    type: 'win',
+    tag: 'WIN ✅',
+    tagClass: 'tag-win',
+    entry: 22350, sl: 22395, t1: 22260, t2: 22215,
+    pnl: '+90 pts (₹6,750/lot)',
+    pnlClass: '',
+    labels: ['9:45','9:55','10:05','10:15','10:25','10:35','10:45','10:55','11:05','11:15','11:25','11:35','11:45'],
+    price: [22380, 22385, 22390, 22392, 22388, 22380, 22365, 22340, 22315, 22295, 22280, 22270, 22260],
+    rsi:   [48,    51,    54,    61,    60,    57,    53,    48,    43,    39,    37,    35,    34],
+    steps: [
+      {
+        type: 'rsi-step', range: [0, 3],
+        title: '📊 Step 1: Gap Down + Bearish Bias',
+        desc: 'Aaj market gap down opening hui thi. 30m RSI 45 — strongly bearish zone. Pehle hi 30 min me clear bias mil gaya tha. Easy bias call.',
+        pills: [['30m RSI', '45', 'red'], ['Open Type', 'Gap down 📉', 'red'], ['Bias', 'Aggressive bear', 'gold']]
+      },
+      {
+        type: 'rsi-step', range: [0, 4],
+        title: '⚡ Step 2: 60 Touch (Pullback)',
+        desc: '10:15 pe RSI 61 touch kiya — pullback me. Sirf 1 candle ke liye. Market structurally bearish, ye sirf retracement tha. 10:25 pe 60 pe close ho gayi — strong reject.',
+        pills: [['Peak RSI', '61', 'orange'], ['Time at 60+', '10 mins only', 'green'], ['Action', 'Watch close', 'gold']]
+      },
+      {
+        type: 'entry-step', range: [0, 6], highlight: 6,
+        title: '🎯 Step 3: Entry @ 22,350',
+        desc: '10:45 candle close — RSI 53 (60 ke neeche). Entry SHORT @ <b>22,350</b>. Swing high 22,392 — SL 22,395 (45 pts risk).',
+        pills: [['Entry', '₹22,350', 'blue'], ['10m RSI close', '53', 'green'], ['SL', '₹22,395', 'red']]
+      },
+      {
+        type: 'sl-step', range: [0, 6], highlight: 6,
+        title: '🛡️ Step 4: Risk-Reward',
+        desc: 'Risk = 45 pts. T1 (1:2) = 22,260 (90 pts reward). T2 (1:3) = 22,215 (135 pts). Existing trend ke saath hum ja rahe hai — high probability setup.',
+        pills: [['Risk', '45 pts', 'red'], ['T1', '+90 pts', 'green'], ['T2 potential', '+135 pts', 'gold']]
+      },
+      {
+        type: 'rsi-step', range: [0, 9],
+        title: '📉 Step 5: Trend Resumes',
+        desc: 'Trade lete hi market apne natural bearish trend me wapas chala gaya. Price <b>22,350 → 22,315 → 22,295</b> — bilkul straight down. RSI 48 → 43 → 39.',
+        pills: [['Price drop', '55 pts in 30min', 'green'], ['RSI', '48 → 39', 'green'], ['Conviction', 'High 💪', 'gold']]
+      },
+      {
+        type: 'tg-step', range: [0, 12], highlight: 12,
+        title: '🏆 Step 6: T1 HIT — Clean Win',
+        desc: '11:45 pe price <b>22,260 hit!</b> T1 achieve. 100% qty book ki — already RSI 34 thi (oversold), bounce ka risk tha. Total profit: 90 × 75 = <b>₹6,750 per lot</b>.',
+        pills: [['T1 Hit', '₹22,260', 'green'], ['Time taken', '60 min', 'blue'], ['Profit', '₹6,750 ✅', 'gold']]
+      },
+      {
+        type: 'tg-step', range: [0, 12], highlight: 12,
+        title: '💡 Step 7: Lesson Learned',
+        desc: 'Notice — jab market <b>already strongly trending</b> ho aur uske direction me strategy signal mile, success rate sabse zyada hota hai. <b>Higher TF bias = bahut important!</b> Counter-trend trades avoid karo.',
+        pills: [['Win condition', 'Trend alignment', 'green'], ['Avoid', 'Counter-trend', 'red'], ['Rule', 'Bias is king 👑', 'gold']]
+      }
+    ]
+  }
+];
+
+// ============================================
+// RENDER + INTERACTIVITY
+// ============================================
+const container = document.getElementById('tradeContainer');
+const tabBar = document.getElementById('tabBar');
+const charts = {};
+const states = {}; // trade index -> { currentStep, isPlaying, intervalId }
+
+// Build all panels
+TRADES.forEach((trade, idx) => {
+  const panel = document.createElement('div');
+  panel.className = 'trade-panel' + (idx === 0 ? ' active' : '');
+  panel.dataset.idx = idx;
+  panel.innerHTML = `
+    <div class="trade-header">
+      <div class="trade-title">${trade.title}<small>${trade.subtitle}</small></div>
+      <span class="trade-tag ${trade.tagClass}">${trade.tag}</span>
+    </div>
+
+    <div class="chart-card">
+      <h3>📈 Live Chart — Price + RSI Animation</h3>
+      <div style="position:relative; height:380px"><canvas id="chart-${idx}"></canvas></div>
+    </div>
+
+    <div class="controls">
+      <div class="progress" id="progress-${idx}"></div>
+      <div class="btn-row">
+        <button class="btn btn-play" data-action="play" data-idx="${idx}">▶ Play Animation</button>
+        <button class="btn btn-prev" data-action="prev" data-idx="${idx}">◀ Previous</button>
+        <button class="btn btn-next" data-action="next" data-idx="${idx}">Next ▶</button>
+        <button class="btn btn-reset" data-action="reset" data-idx="${idx}">↻ Reset</button>
+      </div>
+      <div class="step-box" id="step-${idx}">
+        <span class="step-num">Step 1 / ${trade.steps.length}</span>
+        <div class="step-title">Click "Play Animation" to start</div>
+        <div class="step-desc">Animation chalu karne pe trade ki har choti se choti baat samajh aayegi — entry, SL, target sab kuch step-by-step.</div>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="sum-box sum-entry"><div class="lbl">Entry</div><div class="val">₹${trade.entry.toLocaleString()}</div></div>
+      <div class="sum-box sum-sl"><div class="lbl">Stop Loss</div><div class="val">₹${trade.sl.toLocaleString()}</div></div>
+      <div class="sum-box sum-t1"><div class="lbl">Target 1</div><div class="val">₹${trade.t1.toLocaleString()}</div></div>
+      <div class="sum-box sum-t2"><div class="lbl">Target 2</div><div class="val">₹${trade.t2.toLocaleString()}</div></div>
+      <div class="sum-box sum-pnl ${trade.pnlClass}"><div class="lbl">P&amp;L</div><div class="val">${trade.pnl}</div></div>
+    </div>
+  `;
+  container.appendChild(panel);
+
+  // build progress dots
+  const prog = panel.querySelector('#progress-' + idx);
+  trade.steps.forEach(() => {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    prog.appendChild(d);
+  });
+
+  states[idx] = { step: -1, playing: false, interval: null };
+});
+
+// TAB SWITCHING
+tabBar.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const idx = +btn.dataset.trade;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.trade-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.trade-panel[data-idx="${idx}"]`).classList.add('active');
+  // Resize chart since it was hidden
+  if (charts[idx]) charts[idx].resize();
+});
+
+// BUTTONS (delegated)
+container.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn');
+  if (!btn) return;
+  const idx = +btn.dataset.idx;
+  const action = btn.dataset.action;
+  if (action === 'play') togglePlay(idx);
+  if (action === 'prev') goPrev(idx);
+  if (action === 'next') goNext(idx);
+  if (action === 'reset') reset(idx);
+});
+
+function togglePlay(idx) {
+  const s = states[idx];
+  if (s.playing) {
+    clearInterval(s.interval);
+    s.playing = false;
+    updatePlayBtn(idx);
+    return;
+  }
+  s.playing = true;
+  updatePlayBtn(idx);
+  s.interval = setInterval(() => {
+    if (s.step >= TRADES[idx].steps.length - 1) {
+      clearInterval(s.interval);
+      s.playing = false;
+      updatePlayBtn(idx);
+      return;
+    }
+    goNext(idx);
+  }, 3500);
+  // start immediately
+  if (s.step < 0) goNext(idx);
+}
+
+function updatePlayBtn(idx) {
+  const btn = document.querySelector(`.btn-play[data-idx="${idx}"]`);
+  btn.textContent = states[idx].playing ? '⏸ Pause' : '▶ Play Animation';
+}
+
+function goNext(idx) {
+  const s = states[idx];
+  if (s.step >= TRADES[idx].steps.length - 1) return;
+  s.step++;
+  renderStep(idx);
+}
+
+function goPrev(idx) {
+  const s = states[idx];
+  if (s.step <= 0) return;
+  s.step--;
+  renderStep(idx);
+}
+
+function reset(idx) {
+  const s = states[idx];
+  clearInterval(s.interval);
+  s.playing = false;
+  s.step = -1;
+  updatePlayBtn(idx);
+  // reset progress dots
+  document.querySelectorAll(`#progress-${idx} .dot`).forEach(d => d.className = 'dot');
+  // reset step text
+  const trade = TRADES[idx];
+  const stepBox = document.getElementById('step-' + idx);
+  stepBox.className = 'step-box';
+  stepBox.innerHTML = `
+    <span class="step-num">Step 1 / ${trade.steps.length}</span>
+    <div class="step-title">Click "Play Animation" to start</div>
+    <div class="step-desc">Animation chalu karne pe trade ki har choti se choti baat samajh aayegi.</div>
+  `;
+  // reset chart to show full data (default view)
+  if (charts[idx]) {
+    charts[idx].data.datasets[0].data = trade.price.slice();
+    charts[idx].data.datasets[1].data = trade.rsi.slice();
+    charts[idx].update();
+  }
+}
+
+function renderStep(idx) {
+  const trade = TRADES[idx];
+  const s = states[idx];
+  const step = trade.steps[s.step];
+
+  // update progress dots
+  const dots = document.querySelectorAll(`#progress-${idx} .dot`);
+  dots.forEach((d, i) => {
+    d.className = 'dot' + (i < s.step ? ' done' : i === s.step ? ' current' : '');
+  });
+
+  // update step text
+  const stepBox = document.getElementById('step-' + idx);
+  stepBox.className = 'step-box ' + step.type;
+  const pillsHtml = (step.pills || []).map(p =>
+    `<span class="data-pill ${p[2]||''}"><b>${p[0]}:</b>&nbsp;${p[1]}</span>`
+  ).join('');
+  stepBox.innerHTML = `
+    <span class="step-num">Step ${s.step + 1} / ${trade.steps.length}</span>
+    <div class="step-title">${step.title}</div>
+    <div class="step-desc">${step.desc}</div>
+    <div class="step-data">${pillsHtml}</div>
+  `;
+
+  // update chart with revealed data range
+  updateChart(idx, step);
+}
+
+function buildChart(idx) {
+  const trade = TRADES[idx];
+  const ctx = document.getElementById('chart-' + idx).getContext('2d');
+  charts[idx] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: trade.labels,
+      datasets: [
+        {
+          label: 'Nifty Price', data: trade.price.slice(), borderColor: '#2196f3',
+          backgroundColor: 'rgba(33,150,243,0.1)', tension: 0.3, yAxisID: 'y',
+          borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#2196f3', fill: true
+        },
+        {
+          label: 'RSI (14)', data: trade.rsi.slice(), borderColor: '#ff9800',
+          backgroundColor: 'rgba(255,152,0,0.05)', tension: 0.3, yAxisID: 'y1',
+          borderWidth: 2, pointRadius: 3, borderDash: [6,3]
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 600 },
+      plugins: {
+        legend: { labels: { color: '#e2e8f0' } },
+        tooltip: { backgroundColor: '#1a2235', borderColor: '#1e3a5f', borderWidth: 1 }
+      },
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' } },
+        y: {
+          position: 'left', title: { display: true, text: 'Price (₹)', color: '#2196f3' },
+          ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' }
+        },
+        y1: {
+          position: 'right', min: 0, max: 100,
+          title: { display: true, text: 'RSI', color: '#ff9800' },
+          ticks: { color: '#94a3b8', stepSize: 20 }, grid: { drawOnChartArea: false }
+        }
+      }
+    },
+    plugins: [makeOverlayPlugin(idx)]
+  });
+}function makeOverlayPlugin(idx) {
+  return {
+    id: 'overlay-' + idx,
+    afterDraw(chart) {
+      const s = states[idx];
+      const trade = TRADES[idx];
+      const { ctx, chartArea: { left, right, top, bottom }, scales: { y, y1, x } } = chart;
+
+      // Always draw RSI 60 reference line
+      ctx.save();
+      const y60 = y1.getPixelForValue(60);
+      ctx.strokeStyle = '#ffd600';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 4]);
+      ctx.beginPath();
+      ctx.moveTo(left, y60); ctx.lineTo(right, y60); ctx.stroke();
+      ctx.fillStyle = '#ffd600';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('RSI 60 (Magic Line)', left + 6, y60 - 4);
+
+      // Default view (no animation started) — show ALL levels
+      let showEntry = true, showSL = true, showT1 = true, showT2 = true;
+      let highlight = null;
+
+      if (s.step >= 0) {
+        const step = trade.steps[s.step];
+        showEntry = ['entry-step','sl-step','tg-step'].includes(step.type) || s.step >= 3;
+        showSL    = ['sl-step','tg-step'].includes(step.type) || s.step >= 4;
+        showT1    = ['tg-step'].includes(step.type) || s.step >= 5;
+        showT2    = ['tg-step'].includes(step.type) && s.step >= 6;
+        highlight = step.highlight !== undefined ? { idx: step.highlight, type: step.type } : null;
+      }
+
+      const drawLine = (val, color, label, dash=[6,4]) => {
+        const yp = y.getPixelForValue(val);
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash);
+        ctx.beginPath(); ctx.moveTo(left, yp); ctx.lineTo(right, yp); ctx.stroke();
+        ctx.fillStyle = color; ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(label, right - 145, yp - 4);
+      };
+
+      if (showEntry) drawLine(trade.entry, '#2196f3', '🔵 ENTRY ₹' + trade.entry.toLocaleString(), []);
+      if (showSL)    drawLine(trade.sl, '#ff1744', '🔴 STOP LOSS ₹' + trade.sl.toLocaleString());
+      if (showT1)    drawLine(trade.t1, '#00e676', '🟢 TARGET 1 ₹' + trade.t1.toLocaleString());
+      if (showT2)    drawLine(trade.t2, '#ffd600', '🟡 TARGET 2 ₹' + trade.t2.toLocaleString());
+
+      // Highlight specific candle (entry, sl-hit, target-hit)
+      if (highlight) {
+        const xPos = x.getPixelForValue(highlight.idx);
+        const labelMap = {
+          'entry-step': { color:'#2196f3', label:'⬇ ENTRY HERE' },
+          'sl-step':    { color:'#ff1744', label:'⬇ SL HIT' },
+          'tg-step':    { color:'#00e676', label:'⬇ TARGET HIT' }
+        };
+        const info = labelMap[highlight.type] || { color:'#ffc107', label:'⬇ EVENT' };
+        ctx.strokeStyle = info.color; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+        ctx.beginPath(); ctx.moveTo(xPos, top + 30); ctx.lineTo(xPos, bottom); ctx.stroke();
+        ctx.fillStyle = info.color; ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(info.label, xPos - 36, top + 22);
+
+        // Draw highlight circle on price point
+        const py = y.getPixelForValue(trade.price[highlight.idx]);
+        ctx.fillStyle = info.color;
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(xPos, py, 9, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(xPos, py, 4, 0, 2 * Math.PI); ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  };
+}
+
+function updateChart(idx, step) {
+  const trade = TRADES[idx];
+  const chart = charts[idx];
+  const [start, end] = step.range;
+  // Reveal data progressively up to `end` index
+  const maskedPrice = trade.price.map((v, i) => (i <= end ? v : null));
+  const maskedRsi   = trade.rsi.map((v, i) => (i <= end ? v : null));
+  chart.data.datasets[0].data = maskedPrice;
+  chart.data.datasets[1].data = maskedRsi;
+  chart.update();
+}
+
+// Init: build chart for ALL trades upfront so they show instantly on tab switch
+TRADES.forEach((_, idx) => buildChart(idx));
+</script>
+</body>
+</html>
