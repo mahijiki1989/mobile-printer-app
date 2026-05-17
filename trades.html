@@ -713,8 +713,8 @@ tabBar.addEventListener('click', (e) => {
   btn.classList.add('active');
   document.querySelectorAll('.trade-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`.trade-panel[data-idx="${idx}"]`).classList.add('active');
-  // ensure chart exists for this trade
-  if (!charts[idx]) buildChart(idx);
+  // Resize chart since it was hidden
+  if (charts[idx]) charts[idx].resize();
 });
 
 // BUTTONS (delegated)
@@ -788,12 +788,12 @@ function reset(idx) {
     <div class="step-title">Click "Play Animation" to start</div>
     <div class="step-desc">Animation chalu karne pe trade ki har choti se choti baat samajh aayegi.</div>
   `;
-  // rebuild chart with no data
+  // reset chart to show full data (default view)
   if (charts[idx]) {
-    charts[idx].destroy();
-    delete charts[idx];
+    charts[idx].data.datasets[0].data = trade.price.slice();
+    charts[idx].data.datasets[1].data = trade.rsi.slice();
+    charts[idx].update();
   }
-  buildChart(idx);
 }
 
 function renderStep(idx) {
@@ -833,12 +833,12 @@ function buildChart(idx) {
       labels: trade.labels,
       datasets: [
         {
-          label: 'Nifty Price', data: [], borderColor: '#2196f3',
+          label: 'Nifty Price', data: trade.price.slice(), borderColor: '#2196f3',
           backgroundColor: 'rgba(33,150,243,0.1)', tension: 0.3, yAxisID: 'y',
           borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#2196f3', fill: true
         },
         {
-          label: 'RSI (14)', data: [], borderColor: '#ff9800',
+          label: 'RSI (14)', data: trade.rsi.slice(), borderColor: '#ff9800',
           backgroundColor: 'rgba(255,152,0,0.05)', tension: 0.3, yAxisID: 'y1',
           borderWidth: 2, pointRadius: 3, borderDash: [6,3]
         }
@@ -866,16 +866,12 @@ function buildChart(idx) {
     },
     plugins: [makeOverlayPlugin(idx)]
   });
-}
-
-function makeOverlayPlugin(idx) {
+}function makeOverlayPlugin(idx) {
   return {
     id: 'overlay-' + idx,
     afterDraw(chart) {
       const s = states[idx];
-      if (s.step < 0) return;
       const trade = TRADES[idx];
-      const step = trade.steps[s.step];
       const { ctx, chartArea: { left, right, top, bottom }, scales: { y, y1, x } } = chart;
 
       // Always draw RSI 60 reference line
@@ -890,11 +886,18 @@ function makeOverlayPlugin(idx) {
       ctx.font = 'bold 11px sans-serif';
       ctx.fillText('RSI 60 (Magic Line)', left + 6, y60 - 4);
 
-      // Draw price levels based on step type / progress
-      const showEntry = ['entry-step','sl-step','tg-step'].includes(step.type) || s.step >= 3;
-      const showSL    = ['sl-step','tg-step'].includes(step.type) || s.step >= 4;
-      const showT1    = ['tg-step'].includes(step.type) || s.step >= 5;
-      const showT2    = ['tg-step'].includes(step.type) && s.step >= 6;
+      // Default view (no animation started) — show ALL levels
+      let showEntry = true, showSL = true, showT1 = true, showT2 = true;
+      let highlight = null;
+
+      if (s.step >= 0) {
+        const step = trade.steps[s.step];
+        showEntry = ['entry-step','sl-step','tg-step'].includes(step.type) || s.step >= 3;
+        showSL    = ['sl-step','tg-step'].includes(step.type) || s.step >= 4;
+        showT1    = ['tg-step'].includes(step.type) || s.step >= 5;
+        showT2    = ['tg-step'].includes(step.type) && s.step >= 6;
+        highlight = step.highlight !== undefined ? { idx: step.highlight, type: step.type } : null;
+      }
 
       const drawLine = (val, color, label, dash=[6,4]) => {
         const yp = y.getPixelForValue(val);
@@ -910,21 +913,21 @@ function makeOverlayPlugin(idx) {
       if (showT2)    drawLine(trade.t2, '#ffd600', '🟡 TARGET 2 ₹' + trade.t2.toLocaleString());
 
       // Highlight specific candle (entry, sl-hit, target-hit)
-      if (step.highlight !== undefined) {
-        const xPos = x.getPixelForValue(step.highlight);
+      if (highlight) {
+        const xPos = x.getPixelForValue(highlight.idx);
         const labelMap = {
           'entry-step': { color:'#2196f3', label:'⬇ ENTRY HERE' },
           'sl-step':    { color:'#ff1744', label:'⬇ SL HIT' },
           'tg-step':    { color:'#00e676', label:'⬇ TARGET HIT' }
         };
-        const info = labelMap[step.type] || { color:'#ffc107', label:'⬇ EVENT' };
+        const info = labelMap[highlight.type] || { color:'#ffc107', label:'⬇ EVENT' };
         ctx.strokeStyle = info.color; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
         ctx.beginPath(); ctx.moveTo(xPos, top + 30); ctx.lineTo(xPos, bottom); ctx.stroke();
         ctx.fillStyle = info.color; ctx.font = 'bold 12px sans-serif';
         ctx.fillText(info.label, xPos - 36, top + 22);
 
         // Draw highlight circle on price point
-        const py = y.getPixelForValue(trade.price[step.highlight]);
+        const py = y.getPixelForValue(trade.price[highlight.idx]);
         ctx.fillStyle = info.color;
         ctx.setLineDash([]);
         ctx.beginPath(); ctx.arc(xPos, py, 9, 0, 2 * Math.PI); ctx.fill();
@@ -949,8 +952,8 @@ function updateChart(idx, step) {
   chart.update();
 }
 
-// Init: build chart for first (active) trade
-buildChart(0);
+// Init: build chart for ALL trades upfront so they show instantly on tab switch
+TRADES.forEach((_, idx) => buildChart(idx));
 </script>
 </body>
 </html>
