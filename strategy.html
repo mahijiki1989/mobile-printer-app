@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎯 Nifty RSI Strategy - Complete Guide</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --panel: #111827;
+  --panel2: #1a2235;
+  --border: #1e3a5f;
+  --green: #00e676;
+  --red: #ff1744;
+  --yellow: #ffd600;
+  --blue: #2196f3;
+  --purple: #9c27b0;
+  --orange: #ff9800;
+  --cyan: #00bcd4;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --gold: #ffc107;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+/* ===== HERO ===== */
+.hero {
+  background: linear-gradient(135deg, #0a0e1a 0%, #0d2137 50%, #0a1628 100%);
+  padding: 3rem 1.5rem 2rem;
+  text-align: center;
+  border-bottom: 2px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: radial-gradient(circle at center, rgba(33,150,243,0.08) 0%, transparent 60%);
+  animation: pulse 4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+.hero h1 {
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffd600, #ff9800, #f44336);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+.hero .subtitle {
+  font-size: 1.1rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+.hero-badges {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.badge {
+  padding: 0.4rem 1rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid;
+}
+.badge-green { background: rgba(0,230,118,0.1); border-color: var(--green); color: var(--green); }
+.badge-blue  { background: rgba(33,150,243,0.1); border-color: var(--blue);  color: var(--blue);  }
+.badge-gold  { background: rgba(255,193,7,0.1);  border-color: var(--gold);  color: var(--gold);  }
+.badge-red   { background: rgba(255,23,68,0.1);  border-color: var(--red);   color: var(--red);   }
+
+/* ===== LAYOUT ===== */
+.container { max-width: 1300px; margin: 0 auto; padding: 0 1.5rem; }
+section { padding: 2.5rem 0; border-bottom: 1px solid rgba(30,58,95,0.5); }
+h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+h2 .icon { font-size: 1.8rem; }
+h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.8rem; }
+
+/* ===== CARDS ===== */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+
+/* ===== STRATEGY OVERVIEW CARDS ===== */
+.overview-card {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.overview-card .big-num {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0.5rem 0;
+}
+.overview-card .label { color: var(--muted); font-size: 0.9rem; }
+.green-card { border-color: var(--green); }
+.green-card .big-num { color: var(--green); }
+.red-card   { border-color: var(--red); }
+.red-card .big-num   { color: var(--red); }
+.gold-card  { border-color: var(--gold); }
+.gold-card .big-num  { color: var(--gold); }
+.blue-card  { border-color: var(--blue); }
+.blue-card .big-num  { color: var(--blue); }
+
+/* ===== CHART CONTAINERS ===== */
+.chart-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.chart-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--cyan);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+canvas { width: 100% !important; }
+
+/* ===== STEP CARDS ===== */
+.step-wrap { display: flex; flex-direction: column; gap: 1rem; }
+.step {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.25rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.step::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+}
+.step-1::before { background: var(--blue); }
+.step-2::before { background: var(--purple); }
+.step-3::before { background: var(--green); }
+.step-4::before { background: var(--gold); }
+.step-5::before { background: var(--red); }
+.step-num {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.step-1 .step-num { background: rgba(33,150,243,0.2); color: var(--blue); border: 2px solid var(--blue); }
+.step-2 .step-num { background: rgba(156,39,176,0.2); color: var(--purple); border: 2px solid var(--purple); }
+.step-3 .step-num { background: rgba(0,230,118,0.2); color: var(--green); border: 2px solid var(--green); }
+.step-4 .step-num { background: rgba(255,193,7,0.2); color: var(--gold); border: 2px solid var(--gold); }
+.step-5 .step-num { background: rgba(255,23,68,0.2); color: var(--red); border: 2px solid var(--red); }
+.step-body h3 { margin-bottom: 0.4rem; font-size: 1.05rem; }
+.step-body p  { color: var(--muted); font-size: 0.92rem; }
+.step-body .highlight {
+  display: inline-block;
+  background: rgba(255,214,0,0.1);
+  border: 1px solid rgba(255,214,0,0.3);
+  color: var(--gold);
+  padding: 0.25rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+/* ===== ENTRY/EXIT VISUAL ===== */
+.trade-example {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.trade-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.trade-type {
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.put-trade  { background: rgba(255,23,68,0.15); color: var(--red);   border: 1px solid var(--red); }
+.call-trade { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid var(--green); }
+
+.levels-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.level-box {
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+.level-entry { background: rgba(33,150,243,0.15); border: 1px solid var(--blue); }
+.level-sl    { background: rgba(255,23,68,0.15);  border: 1px solid var(--red); }
+.level-t1    { background: rgba(0,230,118,0.15);  border: 1px solid var(--green); }
+.level-t2    { background: rgba(255,193,7,0.15);  border: 1px solid var(--gold); }
+.level-box .lbl { font-size: 0.75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+.level-box .val { font-size: 1.2rem; font-weight: 800; margin-top: 0.2rem; }
+.level-entry .val { color: var(--blue); }
+.level-sl .val    { color: var(--red); }
+.level-t1 .val    { color: var(--green); }
+.level-t2 .val    { color: var(--gold); }
+
+/* ===== PnL PILL ===== */
+.pnl-row { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+.pnl-pill {
+  padding: 0.4rem 1rem;
+  border-radius: 50px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.pnl-profit { background: rgba(0,230,118,0.15); color: var(--green); border: 1px solid var(--green); }
+.pnl-loss   { background: rgba(255,23,68,0.15);  color: var(--red);   border: 1px solid var(--red); }
+.pnl-info   { background: rgba(33,150,243,0.15); color: var(--blue);  border: 1px solid var(--blue); }
+
+/* ===== RSI EXPLAINER ===== */
+.rsi-bar-wrap { margin: 1.5rem 0; }
+.rsi-bar {
+  position: relative;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(to right,
+    #4caf50 0%, #4caf50 28%,
+    #8bc34a 28%, #8bc34a 38%,
+    #ffd600 38%, #ffd600 62%,
+    #ff9800 62%, #ff9800 72%,
+    #f44336 72%, #f44336 100%
+  );
+  overflow: visible;
+  margin: 2rem 0 1rem;
+}
+.rsi-label {
+  position: absolute;
+  top: -24px;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.rsi-marker {
+  position: absolute;
+  top: -8px;
+  width: 4px; height: 52px;
+  transform: translateX(-50%);
+}
+
+/* ===== RULES BOX ===== */
+.rules-box {
+  background: rgba(255,193,7,0.05);
+  border: 1px solid rgba(255,193,7,0.3);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-top: 1rem;
+}
+.rules-box h4 { color: var(--gold); margin-bottom: 0.75rem; font-size: 1rem; }
+.rules-box ul { list-style: none; }
+.rules-box ul li {
+  padding: 0.4rem 0;
+  color: var(--muted);
+  font-size: 0.93rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.rules-box ul li:last-child { border-bottom: none; }
+.rules-box ul li::before { content: '▸'; color: var(--gold); flex-shrink: 0; }
+
+/* ===== DO/DONT ===== */
+.do-dont {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+@media (max-width: 600px) { .do-dont { grid-template-columns: 1fr; } }
+.do-box, .dont-box {
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+.do-box   { background: rgba(0,230,118,0.06); border: 1px solid rgba(0,230,118,0.3); }
+.dont-box { background: rgba(255,23,68,0.06);  border: 1px solid rgba(255,23,68,0.3); }
+.do-box h4   { color: var(--green); margin-bottom: 0.75rem; }
+.dont-box h4 { color: var(--red);   margin-bottom: 0.75rem; }
+.do-box ul, .dont-box ul { list-style: none; }
+.do-box ul li, .dont-box ul li {
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  color: var(--muted);
+  display: flex;
+  gap: 0.5rem;
+}
+.do-box ul li::before   { content: '✓'; color: var(--green); }
+.dont-box ul li::before { content: '✗'; color: var(--red); }
+
+/* ===== TIMELINE ===== */
+.timeline { position: relative; padding-left: 2rem; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.45rem; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--blue), var(--green), var(--gold));
+}
+.tl-item {
+  position: relative;
+  margin-bottom: 1.25rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+.tl-item::before {
+  content: '';
+  position: absolute;
+  left: -1.7rem; top: 50%;
+  transform: translateY(-50%);
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid var(--bg);
+}
+.tl-time { font-size: 0.78rem; color: var(--cyan); font-weight: 700; margin-bottom: 0.3rem; }
+.tl-action { font-weight: 600; margin-bottom: 0.2rem; }
+.tl-desc { font-size: 0.88rem; color: var(--muted); }
+
+/* ===== BACKTEST TABLE ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+thead tr { background: var(--panel2); }
+th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  color: var(--cyan);
+  font-weight: 700;
+  border-bottom: 2px solid var(--border);
+}
+td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid rgba(30,58,95,0.4);
+  color: var(--muted);
+}
+tr:hover td { background: rgba(255,255,255,0.02); }
+.profit { color: var(--green); font-weight: 700; }
+.loss   { color: var(--red);   font-weight: 700; }
+.neutral { color: var(--muted); }
+
+/* ===== INTERACTIVE QUIZ ===== */
+.quiz-card {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+.quiz-q { font-weight: 700; margin-bottom: 1rem; font-size: 1rem; }
+.quiz-opts { display: flex; flex-direction: column; gap: 0.6rem; }
+.quiz-opt {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  transition: all 0.2s;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.quiz-opt:hover { border-color: var(--blue); background: rgba(33,150,243,0.08); }
+.quiz-opt.correct { border-color: var(--green); background: rgba(0,230,118,0.12); color: var(--green); }
+.quiz-opt.wrong   { border-color: var(--red);   background: rgba(255,23,68,0.12);  color: var(--red); }
+.quiz-feedback {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  display: none;
+}
+.quiz-feedback.show { display: block; }
+.quiz-feedback.correct-fb { background: rgba(0,230,118,0.1); color: var(--green); border: 1px solid var(--green); }
+.quiz-feedback.wrong-fb   { background: rgba(255,23,68,0.1);  color: var(--red);   border: 1px solid var(--red); }
+
+/* ===== CHEATSHEET ===== */
+.cheat {
+  background: linear-gradient(135deg, #0d1f35, #0a1628);
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  padding: 2rem;
+}
+.cheat h3 { color: var(--gold); text-align: center; font-size: 1.4rem; margin-bottom: 1.5rem; }
+.cheat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(255,193,7,0.1);
+  font-size: 0.93rem;
+}
+.cheat-row:last-child { border-bottom: none; }
+.cheat-key { color: var(--muted); }
+.cheat-val { font-weight: 700; color: var(--text); }
+.cheat-val.g { color: var(--green); }
+.cheat-val.r { color: var(--red); }
+.cheat-val.b { color: var(--blue); }
+.cheat-val.y { color: var(--gold); }
+
+/* ===== FOOTER ===== */
+footer {
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+footer strong { color: var(--gold); }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .hero { padding: 2rem 1rem; }
+  .container { padding: 0 1rem; }
+  section { padding: 2rem 0; }
+  h2 { font-size: 1.35rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============== HERO ============== -->
+<section class="hero">
+  <h1>🎯 The Best RSI Strategy</h1>
+  <p class="subtitle">Nifty 30min + 10min RSI Reversal — Intraday Only</p>
+  <div class="hero-badges">
+    <span class="badge badge-green">✓ Backtest Proven</span>
+    <span class="badge badge-blue">Risk : Reward = 1 : 2 or 1 : 3</span>
+    <span class="badge badge-gold">Multi-Timeframe</span>
+    <span class="badge badge-red">Intraday Only</span>
+  </div>
+</section>
+
+<!-- ============== OVERVIEW STATS ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">📊</span> Strategy Overview — Ek Nazar Mein</h2>
+    <div class="grid-4">
+      <div class="overview-card blue-card">
+        <div class="label">Higher TF (Bias)</div>
+        <div class="big-num">30m</div>
+        <div class="label">RSI &lt; 60 = Bearish/Weak</div>
+      </div>
+      <div class="overview-card gold-card">
+        <div class="label">Entry TF (Trigger)</div>
+        <div class="big-num">10m</div>
+        <div class="label">RSI 60 fail + close inside</div>
+      </div>
+      <div class="overview-card green-card">
+        <div class="label">Reward Target</div>
+        <div class="big-num">1:2 / 1:3</div>
+        <div class="label">SL ke 2x ya 3x</div>
+      </div>
+      <div class="overview-card red-card">
+        <div class="label">Stop Loss</div>
+        <div class="big-num">Swing</div>
+        <div class="label">Recent swing high/low</div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ============== STRATEGY LOGIC ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">🧠</span> Strategy Logic — Hindi Mein Samjho</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3 style="color:var(--blue)">📈 Higher Timeframe = Bias Decide Karta Hai</h3>
+        <p style="color:var(--muted); font-size:0.95rem">
+          <b style="color:var(--text)">30 min chart</b> par RSI dekho.
+          Agar <b style="color:var(--red)">RSI &lt; 60</b> hai matlab market abhi
+          <b style="color:var(--red)">strong nahi hai</b> — yahan se hum
+          <b style="color:var(--red)">sell side</b> ya <b>weakness</b> dhoondhenge.
+        </p>
+        <div class="rules-box" style="margin-top:1rem">
+          <h4>🔑 Yaad Rakho:</h4>
+          <ul>
+            <li>30m RSI &lt; 60 = Trend bearish/sideways → <b style="color:var(--red)">PUT side play</b></li>
+            <li>30m RSI &gt; 60 = Trend bullish → CALL side dekho (mirror logic)</li>
+            <li>Higher TF = boss, lower TF = trigger only</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--gold)">⚡ Lower Timeframe = Entry Trigger</h3>
+        <p style="color:var(--muted); font-size:0.95rem">
+          <b style="color:var(--text)">10 min chart</b> par wait karo. RSI ne
+          <b style="color:var(--gold)">60 ko break</b> kiya upar (false breakout),
+          fir <b style="color:var(--red)">wapas 60 ke andar aaya</b>, aur
+          <b>candle close hua</b> — yahi entry trigger hai.
+        </p>
+        <div class="rules-box" style="margin-top:1rem">
+          <h4>🔑 Trigger Recipe:</h4>
+          <ul>
+            <li>Step 1: 10m RSI 60 ke <b>upar gaya</b> (poke)</li>
+            <li>Step 2: Wapas <b>60 ke neeche</b> aaya</li>
+            <li>Step 3: Candle <b style="color:var(--red)">60 ke neeche close</b> hua</li>
+            <li>Step 4: Us candle ke close pe <b>SHORT entry</b></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- RSI BAR EXPLAINER -->
+    <div class="chart-wrap" style="margin-top:1.5rem">
+      <div class="chart-title">🎚️ RSI Zones — Visual Explanation</div>
+      <div class="rsi-bar-wrap">
+        <div class="rsi-bar">
+          <div class="rsi-label" style="left:15%">Oversold</div>
+          <div class="rsi-label" style="left:50%">Neutral</div>
+          <div class="rsi-label" style="left:85%">Overbought</div>
+          <div class="rsi-marker" style="left:30%; background:#fff"></div>
+          <div class="rsi-marker" style="left:60%; background:#000; border:2px solid #fff"></div>
+          <div class="rsi-marker" style="left:70%; background:#fff"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--muted); padding:0 0.5rem">
+          <span>0</span><span>30</span><span>50</span><span>60 ⭐</span><span>70</span><span>100</span>
+        </div>
+      </div>
+      <p style="color:var(--muted); font-size:0.9rem; text-align:center; margin-top:1rem">
+        🎯 Hamara <b style="color:var(--gold)">magic level = 60</b>. Ye line strength ka boundary hai. 
+        Iske <b style="color:var(--green)">upar</b> = bullish, iske <b style="color:var(--red)">neeche</b> = weak.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== NIFTY CHART VISUAL ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">📉</span> Live Example — Nifty Chart Pe Trade</h2>
+    <p style="color:var(--muted); margin-bottom:1.5rem">
+      Niche real-jaisa example hai. Pehle <b>30min</b> chart dekho (bias),
+      fir <b>10min</b> chart pe entry trigger dekho, fir <b>price action</b> me trade play hota hai.
+    </p>
+
+    <!-- 30 MIN CHART -->
+    <div class="chart-wrap">
+      <div class="chart-title">🕐 30-Minute Chart — Bias Confirmation (RSI &lt; 60)</div>
+      <canvas id="chart30" height="280"></canvas>
+      <p style="color:var(--muted); font-size:0.88rem; margin-top:0.75rem; text-align:center">
+        ✅ Dekho RSI consistently <b style="color:var(--red)">60 ke neeche</b> hai → Bearish bias confirmed → PUT side dekhna hai
+      </p>
+    </div>
+
+    <!-- 10 MIN CHART -->
+    <div class="chart-wrap">
+      <div class="chart-title">⚡ 10-Minute Chart — Entry Trigger (RSI 60 Reject)</div>
+      <canvas id="chart10" height="280"></canvas>
+      <p style="color:var(--muted); font-size:0.88rem; margin-top:0.75rem; text-align:center">
+        🎯 RSI ne 60 ko <b style="color:var(--gold)">touch kiya</b>, <b style="color:var(--red)">wapas neeche aaya</b>, candle close hua → 
+        <b style="color:var(--red)">SHORT ENTRY!</b>
+      </p>
+    </div>
+
+    <!-- PRICE CHART WITH ENTRY/SL/TARGET -->
+    <div class="chart-wrap">
+      <div class="chart-title">💰 Nifty Price Action — Entry, SL & Target Visual</div>
+      <canvas id="chartPrice" height="320"></canvas>
+      <p style="color:var(--muted); font-size:0.88rem; margin-top:0.75rem; text-align:center">
+        🔵 Entry → 🔴 Stop Loss (recent swing high) → 🟢 Target 1 (1:2) → 🟡 Target 2 (1:3)
+      </p>
+    </div>
+  </div>
+</section>
+<!-- ============== STEP BY STEP ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">🪜</span> Step by Step — Trade Kaise Lena Hai</h2>
+    <div class="step-wrap">
+
+      <div class="step step-1">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>🔍 30-Min Chart Open Karo</h3>
+          <p>Sabse pehle Nifty ya Bank Nifty ka <b>30 minute timeframe</b> kholo. RSI(14) indicator lagao. Dekho RSI value kya hai.</p>
+          <span class="highlight">⚠️ Agar 30m RSI 60 ke neeche hai → Aage badho. Agar upar hai → Yeh setup nahi banta, wait karo.</span>
+        </div>
+      </div>
+
+      <div class="step step-2">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>⚡ 10-Min Chart Pe Switch Karo</h3>
+          <p>Ab same chart ka <b>10 minute timeframe</b> kholo. Yahan bhi RSI(14) lagao. Dhyan se dekho ki RSI 60 ke saath kaisa behave kar raha hai.</p>
+          <span class="highlight">👀 Wait karo jab tak RSI 60 ko touch/break kare</span>
+        </div>
+      </div>
+
+      <div class="step step-3">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>🎯 Entry Confirmation</h3>
+          <p>RSI 60 ke <b>upar gaya</b> ek-do candle ke liye, fir <b>wapas 60 ke neeche aaya</b>, aur us candle ka <b>close 60 ke neeche</b> hua. <b style="color:var(--red)">YEH HI ENTRY HAI!</b></p>
+          <span class="highlight">✅ Entry: Us 10min candle ke close pe SHORT (PUT buy karo / Future sell)</span>
+        </div>
+      </div>
+
+      <div class="step step-4">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>🛡️ Stop Loss Lagao</h3>
+          <p><b>SL = Recent Swing High</b> (10 min chart pe last bana hua high). Ye fixed SL hai jo trade open hote hi lagana hai. Mental SL mat rakhna, broker me actual order daalna.</p>
+          <span class="highlight">📍 SL = Swing High + 2-3 points buffer (false hit avoid karne ke liye)</span>
+        </div>
+      </div>
+
+      <div class="step step-5">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>🏆 Target Set Karo (1:2 ya 1:3)</h3>
+          <p>Risk count karo: <b>SL Distance = Entry – Swing High</b> (absolute value). Ab target = Entry – (2 × SL distance) ya (3 × SL distance).</p>
+          <span class="highlight">💡 Tip: 50% qty 1:2 pe book, baki 50% trailing SL ke saath 1:3 tak chalao</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============== TRADE EXAMPLE WITH NUMBERS ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">💼</span> Real Numbers Wale Trade Examples</h2>
+
+    <!-- EXAMPLE 1: PUT TRADE -->
+    <div class="trade-example">
+      <div class="trade-header">
+        <h3>📌 Example 1: Nifty Index Short (Bearish Setup)</h3>
+        <span class="trade-type put-trade">SHORT / PUT BUY</span>
+      </div>
+      <p style="color:var(--muted); font-size:0.93rem">
+        <b>Date:</b> Sample trade | <b>30m RSI:</b> 52 (below 60 ✓) | 
+        <b>10m RSI:</b> 60 ko break → wapas 58 pe close ✓
+      </p>
+      <div class="levels-row">
+        <div class="level-box level-entry">
+          <div class="lbl">Entry</div>
+          <div class="val">22,500</div>
+        </div>
+        <div class="level-box level-sl">
+          <div class="lbl">Stop Loss</div>
+          <div class="val">22,550</div>
+        </div>
+        <div class="level-box level-t1">
+          <div class="lbl">Target 1 (1:2)</div>
+          <div class="val">22,400</div>
+        </div>
+        <div class="level-box level-t2">
+          <div class="lbl">Target 2 (1:3)</div>
+          <div class="val">22,350</div>
+        </div>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-pill pnl-info">📏 Risk: 50 pts</span>
+        <span class="pnl-pill pnl-profit">🎯 Reward T1: 100 pts</span>
+        <span class="pnl-pill pnl-profit">🎯 Reward T2: 150 pts</span>
+        <span class="pnl-pill pnl-info">💰 1 lot = ₹3,750 (T1) / ₹5,625 (T2)</span>
+      </div>
+      <div style="margin-top:1rem; padding:0.75rem 1rem; background:rgba(0,230,118,0.05); border-left:3px solid var(--green); border-radius:6px">
+        <small style="color:var(--green); font-weight:600">✅ Result:</small>
+        <small style="color:var(--muted)"> Price 22,400 ko hit kiya — 50% qty book (₹3,750/lot), baki 50% trail karke 22,360 pe exit (₹3,150/lot extra). <b style="color:var(--green)">Total profit ~₹6,900/lot</b></small>
+      </div>
+    </div>
+
+    <!-- EXAMPLE 2: PREMIUM TRADE -->
+    <div class="trade-example">
+      <div class="trade-header">
+        <h3>📌 Example 2: Nifty PUT Premium Trade</h3>
+        <span class="trade-type put-trade">PE BUY → PE SELL</span>
+      </div>
+      <p style="color:var(--muted); font-size:0.93rem">
+        <b>Logic:</b> Premium chart pe RSI dekho. Jab PE premium ka 30m RSI &lt; 60 ho aur 10m pe 60 break karke neeche close ho → matlab premium gir raha hai → exit/avoid. <b>Ya alternate logic:</b> Index par signal aaya → corresponding ATM PE buy karo.
+      </p>
+      <div class="levels-row">
+        <div class="level-box level-entry">
+          <div class="lbl">PE Buy @</div>
+          <div class="val">₹120</div>
+        </div>
+        <div class="level-box level-sl">
+          <div class="lbl">SL</div>
+          <div class="val">₹95</div>
+        </div>
+        <div class="level-box level-t1">
+          <div class="lbl">T1 (1:2)</div>
+          <div class="val">₹170</div>
+        </div>
+        <div class="level-box level-t2">
+          <div class="lbl">T2 (1:3)</div>
+          <div class="val">₹195</div>
+        </div>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-pill pnl-info">Risk: ₹25</span>
+        <span class="pnl-pill pnl-profit">Reward T1: ₹50</span>
+        <span class="pnl-pill pnl-profit">Reward T2: ₹75</span>
+        <span class="pnl-pill pnl-info">Lot=25 → ₹1,250 / ₹1,875 profit</span>
+      </div>
+    </div>
+
+    <!-- EXAMPLE 3: STOP LOSS HIT -->
+    <div class="trade-example">
+      <div class="trade-header">
+        <h3>📌 Example 3: Stop Loss Hit Hua (Loss Scenario)</h3>
+        <span class="trade-type put-trade">SHORT — SL HIT</span>
+      </div>
+      <p style="color:var(--muted); font-size:0.93rem">
+        Sab strategy 100% nahi chalti. Ye example dikhata hai jab market reverse ho jata hai. Har trade jeetne ke liye nahi, <b>risk control</b> ke liye banaya hai.
+      </p>
+      <div class="levels-row">
+        <div class="level-box level-entry">
+          <div class="lbl">Entry</div>
+          <div class="val">22,500</div>
+        </div>
+        <div class="level-box level-sl">
+          <div class="lbl">SL Hit @</div>
+          <div class="val">22,550</div>
+        </div>
+        <div class="level-box level-t1">
+          <div class="lbl">T1 (Missed)</div>
+          <div class="val">22,400</div>
+        </div>
+        <div class="level-box" style="background:rgba(148,163,184,0.1); border:1px solid var(--muted)">
+          <div class="lbl">Result</div>
+          <div class="val" style="color:var(--red)">-50 pts</div>
+        </div>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-pill pnl-loss">❌ Loss: ₹3,750/lot</span>
+        <span class="pnl-pill pnl-info">📊 Math: 1 SL = 2 wins compensate</span>
+      </div>
+      <div style="margin-top:1rem; padding:0.75rem 1rem; background:rgba(255,193,7,0.05); border-left:3px solid var(--gold); border-radius:6px">
+        <small style="color:var(--gold); font-weight:600">💡 Important:</small>
+        <small style="color:var(--muted)"> 1:2 RR me sirf <b>34% win rate</b> chahiye breakeven ke liye. Iska matlab 3 me se 1 trade jeete to bhi profit. SL accept karna seekho!</small>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ============== TRADE DAY TIMELINE ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">⏰</span> Ek Trading Day Ki Timeline</h2>
+    <p style="color:var(--muted); margin-bottom:1.5rem">Pure din kaise dekhna hai market — yeh raha real flow:</p>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-time">9:15 AM — Market Open</div>
+        <div class="tl-action">📊 Pehla 30-min candle banne do</div>
+        <div class="tl-desc">Pehle 15-30 min volatile hote hai. 9:45 tak wait karo. RSI value abhi noisy hogi.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-time">9:45 AM — Bias Check</div>
+        <div class="tl-action">🕐 30m RSI Read Karo</div>
+        <div class="tl-desc">Agar RSI &lt; 60 hai → bearish bias confirmed. Ab 10m chart pe shift karo. Agar RSI &gt; 60 hai → reverse logic ya wait.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-time">10:00 AM – 2:30 PM — Hunt Time</div>
+        <div class="tl-action">🎯 10m Chart Pe Trigger Wait</div>
+        <div class="tl-desc">Har 10 min ke baad RSI dekho. Jab RSI 60 break karke wapas neeche close kare → ENTRY le lo. Patience zaroori hai!</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-time">Entry Ke Turant Baad</div>
+        <div class="tl-action">🛡️ SL + Target Order Place</div>
+        <div class="tl-desc">SL = swing high. Target = entry – 2x SL distance (T1) and 3x (T2). Bracket/GTT order use karo.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-time">Trade Active — Manage</div>
+        <div class="tl-action">⚙️ Trail SL After T1</div>
+        <div class="tl-desc">T1 hit hua → 50% qty exit, baki ke liye SL ko entry pe le aao (cost-to-cost). Risk-free trade ban gaya.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-time">3:15 PM — Force Exit</div>
+        <div class="tl-action">🏁 Square Off Mandatory</div>
+        <div class="tl-desc">Intraday strategy hai. Profit ho ya loss, 3:15 tak position band karo. Overnight risk avoid!</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== DO / DON'T ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">⚖️</span> Karna Hai vs Nahi Karna</h2>
+    <div class="do-dont">
+      <div class="do-box">
+        <h4>✅ Yeh Zaroor Karo</h4>
+        <ul>
+          <li>Pehle 30m bias check karo, fir hi 10m dekho</li>
+          <li>Candle <b>close</b> ka wait karo (mid-candle entry NHI)</li>
+          <li>SL hamesha actual broker me lagao</li>
+          <li>1 day me max 2-3 trades — quality &gt; quantity</li>
+          <li>Trade journal maintain karo har trade ka</li>
+          <li>Risk per trade = capital ka 1-2% only</li>
+          <li>3:15 PM tak square off mandatory</li>
+          <li>News events (RBI, Fed, Budget) ke time avoid</li>
+        </ul>
+      </div>
+      <div class="dont-box">
+        <h4>❌ Yeh Bilkul Mat Karo</h4>
+        <ul>
+          <li>Mid-candle entry mat lo — patience rakho</li>
+          <li>SL ko hatake "hope" pe trade mat chalao</li>
+          <li>Position double mat karo loss me (averaging)</li>
+          <li>Ek hi din 5+ trades mat lo (overtrading)</li>
+          <li>30m bias against ja raha ho to mat lo</li>
+          <li>Sirf RSI dekh ke trade mat lo, price action bhi</li>
+          <li>Overnight position mat hold karo</li>
+          <li>Loss recovery ke chakkar me revenge trading mat</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== BACKTEST RESULTS TABLE ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">📋</span> Sample Backtest — 10 Trade Result</h2>
+    <div class="card" style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Setup</th><th>Entry</th><th>SL</th><th>Target</th><th>Exit</th><th>Result</th><th>P&L (pts)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>30m RSI 48, 10m reject</td><td>22,500</td><td>22,550</td><td>22,400</td><td>22,400</td><td class="profit">✅ Win</td><td class="profit">+100</td></tr>
+          <tr><td>2</td><td>30m RSI 55, 10m reject</td><td>22,620</td><td>22,665</td><td>22,530</td><td>22,665</td><td class="loss">❌ SL</td><td class="loss">-45</td></tr>
+          <tr><td>3</td><td>30m RSI 51, 10m reject</td><td>22,480</td><td>22,520</td><td>22,400</td><td>22,360</td><td class="profit">✅ T2 Hit</td><td class="profit">+120</td></tr>
+          <tr><td>4</td><td>30m RSI 58, 10m reject</td><td>22,700</td><td>22,740</td><td>22,620</td><td>22,620</td><td class="profit">✅ Win</td><td class="profit">+80</td></tr>
+          <tr><td>5</td><td>30m RSI 45, 10m reject</td><td>22,350</td><td>22,400</td><td>22,250</td><td>22,250</td><td class="profit">✅ Win</td><td class="profit">+100</td></tr>
+          <tr><td>6</td><td>30m RSI 56, 10m reject</td><td>22,580</td><td>22,615</td><td>22,510</td><td>22,615</td><td class="loss">❌ SL</td><td class="loss">-35</td></tr>
+          <tr><td>7</td><td>30m RSI 50, 10m reject</td><td>22,450</td><td>22,490</td><td>22,370</td><td>22,330</td><td class="profit">✅ T2 Hit</td><td class="profit">+120</td></tr>
+          <tr><td>8</td><td>30m RSI 53, 10m reject</td><td>22,540</td><td>22,580</td><td>22,460</td><td>22,460</td><td class="profit">✅ Win</td><td class="profit">+80</td></tr>
+          <tr><td>9</td><td>30m RSI 47, 10m reject</td><td>22,400</td><td>22,445</td><td>22,310</td><td>22,310</td><td class="profit">✅ Win</td><td class="profit">+90</td></tr>
+          <tr><td>10</td><td>30m RSI 54, 10m reject</td><td>22,560</td><td>22,600</td><td>22,480</td><td>22,600</td><td class="loss">❌ SL</td><td class="loss">-40</td></tr>
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--panel2); font-weight:700">
+            <td colspan="6" style="color:var(--gold)">📊 Total Summary</td>
+            <td class="profit">7 W / 3 L</td>
+            <td class="profit">+570 pts</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="grid-3" style="margin-top:1.25rem">
+      <div class="overview-card green-card">
+        <div class="label">Win Rate</div>
+        <div class="big-num">70%</div>
+        <div class="label">7 out of 10 trades</div>
+      </div>
+      <div class="overview-card blue-card">
+        <div class="label">Avg Risk : Reward</div>
+        <div class="big-num">1:2.3</div>
+        <div class="label">Realized over 10 trades</div>
+      </div>
+      <div class="overview-card gold-card">
+        <div class="label">Net Points</div>
+        <div class="big-num">+570</div>
+        <div class="label">≈ ₹42,750 (1 lot Nifty)</div>
+      </div>
+    </div>
+    <p style="color:var(--muted); font-size:0.85rem; margin-top:1rem; text-align:center">
+      ⚠️ Yeh sample illustrative data hai. Live trading me apna khud ka backtest karo apne data pe.
+    </p>
+  </div>
+</section>
+
+<!-- ============== QUIZ ============== -->
+<section>
+  <div class="container">
+    <h2><span class="icon">🧪</span> Quick Quiz — Samjha Ya Nahi?</h2>
+    <p style="color:var(--muted); margin-bottom:1.5rem">Khud ko test karo. Sahi answer pe click karo.</p>
+
+    <div class="quiz-card" data-correct="b">
+      <div class="quiz-q">Q1. 30 min chart pe RSI 55 hai. Aap kya karoge?</div>
+      <div class="quiz-opts">
+        <button class="quiz-opt" data-opt="a">Direct buy maaro</button>
+        <button class="quiz-opt" data-opt="b">10m chart pe shift karke RSI 60 reject ka wait karo (short bias)</button>
+        <button class="quiz-opt" data-opt="c">Trade chhod do</button>
+      </div>
+      <div class="quiz-feedback"></div>
+    </div>
+
+    <div class="quiz-card" data-correct="c">
+      <div class="quiz-q">Q2. Stop Loss kahan rakhna hai?</div>
+      <div class="quiz-opts">
+        <button class="quiz-opt" data-opt="a">10 points fixed</button>
+        <button class="quiz-opt" data-opt="b">Mental SL — broker me daalna zaroori nahi</button>
+        <button class="quiz-opt" data-opt="c">Recent swing high (10m chart) + 2-3 pts buffer, broker me actual order</button>
+      </div>
+      <div class="quiz-feedback"></div>
+    </div>
+
+    <div class="quiz-card" data-correct="b">
+      <div class="quiz-q">Q3. Entry kab leni hai?</div>
+      <div class="quiz-opts">
+        <button class="quiz-opt" data-opt="a">Jaise hi RSI 60 break ho upar ki taraf</button>
+        <button class="quiz-opt" data-opt="b">RSI 60 break karke wapas neeche aaye aur 10m candle close ho</button>
+        <button class="quiz-opt" data-opt="c">RSI 70 cross hone par</button>
+      </div>
+      <div class="quiz-feedback"></div>
+    </div>
+
+    <div class="quiz-card" data-correct="a">
+      <div class="quiz-q">Q4. Entry 100, SL 110, Target 1:2 kya hoga?</div>
+      <div class="quiz-opts">
+        <button class="quiz-opt" data-opt="a">80 (short trade — 10 risk × 2 = 20 reward)</button>
+        <button class="quiz-opt" data-opt="b">120</button>
+        <button class="quiz-opt" data-opt="c">90</button>
+      </div>
+      <div class="quiz-feedback"></div>
+    </div>
+
+    <div class="quiz-card" data-correct="c">
+      <div class="quiz-q">Q5. Position kab tak hold karenge?</div>
+      <div class="quiz-opts">
+        <button class="quiz-opt" data-opt="a">Jab tak profit aaye, agle din bhi</button>
+        <button class="quiz-opt" data-opt="b">1 hafte tak swing</button>
+        <button class="quiz-opt" data-opt="c">Sirf intraday — 3:15 PM tak max</button>
+      </div>
+      <div class="quiz-feedback"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== CHEATSHEET ============== -->
+<section>
+  <div class="container">
+    <div class="cheat">
+      <h3>📜 Final Cheatsheet — Print Karke Rakh Lo</h3>
+      <div class="cheat-row"><span class="cheat-key">Higher Timeframe</span><span class="cheat-val b">30 minute</span></div>
+      <div class="cheat-row"><span class="cheat-key">Entry Timeframe</span><span class="cheat-val y">10 minute</span></div>
+      <div class="cheat-row"><span class="cheat-key">Indicator</span><span class="cheat-val">RSI (14 period, close)</span></div>
+      <div class="cheat-row"><span class="cheat-key">Magic Level</span><span class="cheat-val y">RSI = 60</span></div>
+      <div class="cheat-row"><span class="cheat-key">Bias Rule</span><span class="cheat-val r">30m RSI &lt; 60 → Bearish</span></div>
+      <div class="cheat-row"><span class="cheat-key">Entry Trigger</span><span class="cheat-val">10m: 60 break → wapas inside → close</span></div>
+      <div class="cheat-row"><span class="cheat-key">Direction</span><span class="cheat-val r">Short / PUT Buy</span></div>
+      <div class="cheat-row"><span class="cheat-key">Stop Loss</span><span class="cheat-val r">Recent swing high + buffer</span></div>
+      <div class="cheat-row"><span class="cheat-key">Target 1</span><span class="cheat-val g">Entry – (2 × SL distance)</span></div>
+      <div class="cheat-row"><span class="cheat-key">Target 2</span><span class="cheat-val g">Entry – (3 × SL distance)</span></div>
+      <div class="cheat-row"><span class="cheat-key">Position Type</span><span class="cheat-val y">Intraday only</span></div>
+      <div class="cheat-row"><span class="cheat-key">Square Off</span><span class="cheat-val r">Latest 3:15 PM</span></div>
+      <div class="cheat-row"><span class="cheat-key">Risk per trade</span><span class="cheat-val">1-2% of capital</span></div>
+      <div class="cheat-row"><span class="cheat-key">Max trades/day</span><span class="cheat-val">2-3 high quality setups</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>📚 <strong>Disclaimer:</strong> Yeh educational content hai. Live trading se pehle apna paper-trading aur backtest zaroor karo.</p>
+  <p style="margin-top:0.5rem">Built with ❤️ for traders | RSI 30m + 10m Strategy</p>
+</footer>
+
+<!-- ============== CHART.JS SCRIPTS ============== -->
+<script>
+// ===== 30 MIN CHART (Bias) =====
+const ctx30 = document.getElementById('chart30').getContext('2d');
+const labels30 = ['9:45','10:15','10:45','11:15','11:45','12:15','12:45','1:15','1:45','2:15','2:45'];
+const price30  = [22680, 22650, 22640, 22620, 22600, 22580, 22550, 22530, 22510, 22490, 22470];
+const rsi30    = [58, 56, 55, 53, 52, 50, 48, 47, 46, 45, 44];
+
+new Chart(ctx30, {
+  type: 'line',
+  data: {
+    labels: labels30,
+    datasets: [
+      { label: 'Nifty Price', data: price30, borderColor: '#2196f3', backgroundColor: 'rgba(33,150,243,0.1)', tension: 0.3, yAxisID: 'y', borderWidth: 2, pointRadius: 3 },
+      { label: 'RSI (14)', data: rsi30, borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.1)', tension: 0.3, yAxisID: 'y1', borderWidth: 2, pointRadius: 3, borderDash: [5,3] }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#e2e8f0' } },
+      tooltip: { backgroundColor: '#1a2235', borderColor: '#1e3a5f', borderWidth: 1 }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' } },
+      y: { position: 'left', title: { display: true, text: 'Price', color: '#2196f3' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' } },
+      y1: { position: 'right', min: 0, max: 100, title: { display: true, text: 'RSI', color: '#ff9800' }, ticks: { color: '#94a3b8' }, grid: { drawOnChartArea: false } }
+    }
+  },
+  plugins: [{
+    id: 'rsi60Line30',
+    afterDraw(chart) {
+      const { ctx, chartArea: { left, right }, scales: { y1 } } = chart;
+      const y60 = y1.getPixelForValue(60);
+      ctx.save();
+      ctx.strokeStyle = '#ffd600'; ctx.lineWidth = 2; ctx.setLineDash([8, 4]);
+      ctx.beginPath(); ctx.moveTo(left, y60); ctx.lineTo(right, y60); ctx.stroke();
+      ctx.fillStyle = '#ffd600'; ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('RSI 60', right - 50, y60 - 6);
+      ctx.restore();
+    }
+  }]
+});
+
+// ===== 10 MIN CHART (Trigger) =====
+const ctx10 = document.getElementById('chart10').getContext('2d');
+const labels10 = ['11:00','11:10','11:20','11:30','11:40','11:50','12:00','12:10','12:20','12:30','12:40','12:50','1:00'];
+const price10  = [22600, 22610, 22625, 22635, 22640, 22638, 22630, 22615, 22600, 22585, 22570, 22555, 22540];
+const rsi10    = [54, 56, 58, 61, 63, 60, 57, 54, 51, 48, 46, 44, 42];
+
+new Chart(ctx10, {
+  type: 'line',
+  data: {
+    labels: labels10,
+    datasets: [
+      { label: 'Nifty Price', data: price10, borderColor: '#2196f3', backgroundColor: 'rgba(33,150,243,0.1)', tension: 0.3, yAxisID: 'y', borderWidth: 2, pointRadius: 3 },
+      { label: 'RSI (14)', data: rsi10, borderColor: '#ff9800', backgroundColor: 'rgba(255,152,0,0.1)', tension: 0.3, yAxisID: 'y1', borderWidth: 2, borderDash: [5,3],
+        pointBackgroundColor: rsi10.map((v,i)=> i===5 ? '#ff1744' : '#ff9800'),
+        pointRadius: rsi10.map((v,i)=> i===5 ? 7 : 3)
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#e2e8f0' } },
+      tooltip: { backgroundColor: '#1a2235', borderColor: '#1e3a5f', borderWidth: 1 }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' } },
+      y: { position: 'left', title: { display: true, text: 'Price', color: '#2196f3' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' } },
+      y1: { position: 'right', min: 0, max: 100, title: { display: true, text: 'RSI', color: '#ff9800' }, ticks: { color: '#94a3b8' }, grid: { drawOnChartArea: false } }
+    }
+  },
+  plugins: [{
+    id: 'rsi60Line10',
+    afterDraw(chart) {
+      const { ctx, chartArea: { left, right, top, bottom }, scales: { y1, x } } = chart;
+      const y60 = y1.getPixelForValue(60);
+      ctx.save();
+      ctx.strokeStyle = '#ffd600'; ctx.lineWidth = 2; ctx.setLineDash([8, 4]);
+      ctx.beginPath(); ctx.moveTo(left, y60); ctx.lineTo(right, y60); ctx.stroke();
+      ctx.fillStyle = '#ffd600'; ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('RSI 60 (Magic Line)', left + 8, y60 - 6);
+
+      // Entry arrow at index 5 (RSI back below 60)
+      const xEntry = x.getPixelForValue(5);
+      ctx.fillStyle = '#ff1744';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('⬇ ENTRY', xEntry - 30, top + 25);
+      ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 2; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(xEntry, top + 30); ctx.lineTo(xEntry, bottom); ctx.stroke();
+      ctx.restore();
+    }
+  }]
+});
+
+// ===== PRICE CHART (Entry / SL / Targets) =====
+const ctxP = document.getElementById('chartPrice').getContext('2d');
+const labelsP = ['11:50','12:00','12:10','12:20','12:30','12:40','12:50','1:00','1:10','1:20','1:30'];
+const priceP  = [22638, 22630, 22615, 22600, 22585, 22570, 22555, 22540, 22520, 22505, 22495];
+
+new Chart(ctxP, {
+  type: 'line',
+  data: {
+    labels: labelsP,
+    datasets: [
+      { label: 'Nifty Price', data: priceP, borderColor: '#00bcd4', backgroundColor: 'rgba(0,188,212,0.1)', tension: 0.3, fill: true, borderWidth: 3,
+        pointBackgroundColor: priceP.map((v,i)=> i===2 ? '#2196f3' : '#00bcd4'),
+        pointRadius: priceP.map((v,i)=> i===2 ? 8 : 4)
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: '#e2e8f0' } },
+      tooltip: { backgroundColor: '#1a2235', borderColor: '#1e3a5f', borderWidth: 1 }
+    },
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' } },
+      y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(30,58,95,0.3)' } }
+    }
+  },
+  plugins: [{
+    id: 'levelLines',
+    afterDraw(chart) {
+      const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+      const lines = [
+        { val: 22615, color: '#2196f3', label: '🔵 ENTRY (22,615)', dash: [] },
+        { val: 22650, color: '#ff1744', label: '🔴 STOP LOSS (22,650)', dash: [6,4] },
+        { val: 22545, color: '#00e676', label: '🟢 TARGET 1 — 1:2 (22,545)', dash: [6,4] },
+        { val: 22510, color: '#ffd600', label: '🟡 TARGET 2 — 1:3 (22,510)', dash: [6,4] }
+      ];
+      ctx.save();
+      ctx.font = 'bold 11px sans-serif';
+      lines.forEach(l => {
+        const yPos = y.getPixelForValue(l.val);
+        ctx.strokeStyle = l.color; ctx.lineWidth = 2; ctx.setLineDash(l.dash);
+        ctx.beginPath(); ctx.moveTo(left, yPos); ctx.lineTo(right, yPos); ctx.stroke();
+        ctx.fillStyle = l.color;
+        ctx.fillText(l.label, left + 6, yPos - 4);
+      });
+      ctx.restore();
+    }
+  }]
+});
+
+// ===== QUIZ INTERACTIVITY =====
+document.querySelectorAll('.quiz-card').forEach(card => {
+  const correct = card.dataset.correct;
+  const opts = card.querySelectorAll('.quiz-opt');
+  const feedback = card.querySelector('.quiz-feedback');
+
+  opts.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (card.classList.contains('answered')) return;
+      card.classList.add('answered');
+      const chosen = btn.dataset.opt;
+      opts.forEach(b => {
+        if (b.dataset.opt === correct) b.classList.add('correct');
+        else if (b === btn) b.classList.add('wrong');
+        b.disabled = true;
+      });
+      if (chosen === correct) {
+        feedback.classList.add('show', 'correct-fb');
+        feedback.innerHTML = '✅ Bilkul Sahi! Bahut badhiya samjha hai aapne strategy ko.';
+      } else {
+        feedback.classList.add('show', 'wrong-fb');
+        feedback.innerHTML = '❌ Galat. Sahi answer green me dikhaya gaya hai. Wapas strategy padho.';
+      }
+    });
+  });
+});
+</script>
+
+</body>
+</html>
