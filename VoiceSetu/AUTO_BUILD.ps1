@@ -1,222 +1,201 @@
 # ============================================
-# VoiceSetu - One Click Auto Builder
-# Just right-click this file -> "Run with PowerShell"
-# OR open PowerShell and run: .\AUTO_BUILD.ps1
+# VoiceSetu - COMPLETE Auto Builder v2
+# 
+# INSTRUCTIONS:
+# 1. Windows Security mein VoiceSetu folder exclude karo
+# 2. PowerShell (Admin) kholo
+# 3. Yeh run karo:
+#    Set-ExecutionPolicy Bypass -Scope Process -Force
+#    cd "E:\mobile-printer-app-feat-voicesetu-desktop-app\VoiceSetu"
+#    .\AUTO_BUILD.ps1
 # ============================================
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  VoiceSetu Auto Builder" -ForegroundColor Cyan
-Write-Host "  Yeh script sab kuch automatic karega" -ForegroundColor Cyan
+Write-Host "  VoiceSetu Auto Builder v2" -ForegroundColor Cyan  
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Set execution policy for this session
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
-
 $ErrorActionPreference = "Continue"
 $projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
 Set-Location $projectDir
-Write-Host "[INFO] Working directory: $projectDir" -ForegroundColor Gray
 
-# ---- STEP 1: Check Python ----
+Write-Host "[INFO] Folder: $projectDir" -ForegroundColor Gray
 Write-Host ""
-Write-Host "[1/8] Python check kar rahe hain..." -ForegroundColor Yellow
+
+# ---- Check Windows Defender exclusion reminder ----
+Write-Host "[IMPORTANT] Kya tumne Windows Defender mein folder exclude kiya?" -ForegroundColor Red
+Write-Host "  Agar nahi kiya toh build fail hoga!" -ForegroundColor Red
+Write-Host "  Windows Security > Virus Protection > Manage Settings > Exclusions" -ForegroundColor Yellow
+Write-Host "  Add Folder: $projectDir" -ForegroundColor Yellow
+Write-Host ""
+$confirm = Read-Host "Exclusion add kar liya? (y/n)"
+if ($confirm -ne "y") {
+    Write-Host ""
+    Write-Host "Pehle Windows Defender mein exclusion add karo, phir script run karo." -ForegroundColor Red
+    Read-Host "Press Enter to exit"
+    exit 0
+}
+
+# ---- STEP 1: Find Python ----
+Write-Host ""
+Write-Host "[1/7] Python dhundh rahe hain..." -ForegroundColor Yellow
 
 $pythonCmd = $null
-$pythonPaths = @("python", "python3", "py -3.11", "py -3.10", "py")
-
-foreach ($p in $pythonPaths) {
+foreach ($p in @("python", "py")) {
     try {
-        $ver = & $p.Split(" ")[0] $p.Split(" ")[1..99] --version 2>&1
-        if ($ver -match "Python 3\.(1[0-1])") {
+        $result = & $p --version 2>&1
+        if ($result -match "Python 3\.\d+") {
             $pythonCmd = $p
-            Write-Host "  Python found: $ver" -ForegroundColor Green
+            Write-Host "  Found: $result" -ForegroundColor Green
             break
         }
     } catch {}
 }
 
 if (-not $pythonCmd) {
-    # Try to find python in common locations
-    $commonPaths = @(
-        "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
-        "$env:LOCALAPPDATA\Programs\Python\Python310\python.exe",
-        "C:\Python311\python.exe",
-        "C:\Python310\python.exe"
-    )
-    foreach ($cp in $commonPaths) {
-        if (Test-Path $cp) {
-            $pythonCmd = $cp
-            Write-Host "  Python found at: $cp" -ForegroundColor Green
-            break
-        }
-    }
-}
-
-if (-not $pythonCmd) {
-    Write-Host ""
-    Write-Host "  ERROR: Python 3.10 or 3.11 nahi mila!" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "  Python download karo: https://www.python.org/downloads/" -ForegroundColor Yellow
-    Write-Host "  Install karte waqt 'Add Python to PATH' checkbox tick karo!" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  Python install karne ke baad yeh script dobara run karo." -ForegroundColor Yellow
-    Write-Host ""
+    Write-Host "  ERROR: Python nahi mila!" -ForegroundColor Red
+    Write-Host "  Download karo: https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe" -ForegroundColor Yellow
+    Write-Host "  Install mein 'Add to PATH' tick karo!" -ForegroundColor Yellow
     Read-Host "Press Enter to exit"
     exit 1
 }
 
 # ---- STEP 2: Create venv ----
 Write-Host ""
-Write-Host "[2/8] Virtual environment bana rahe hain..." -ForegroundColor Yellow
+Write-Host "[2/7] Virtual environment..." -ForegroundColor Yellow
 
-if (-not (Test-Path "venv")) {
-    & $pythonCmd.Split(" ")[0] $pythonCmd.Split(" ")[1..99] -m venv venv
-    Write-Host "  Venv created." -ForegroundColor Green
-} else {
-    Write-Host "  Venv already exists." -ForegroundColor Green
+if (Test-Path "venv") {
+    Write-Host "  Purana venv delete kar rahe hain..." -ForegroundColor Gray
+    Remove-Item -Recurse -Force venv
 }
 
-# ---- STEP 3: Activate venv ----
-Write-Host ""
-Write-Host "[3/8] Venv activate kar rahe hain..." -ForegroundColor Yellow
-
+& $pythonCmd -m venv venv
 $venvPython = Join-Path $projectDir "venv\Scripts\python.exe"
-$venvPip = Join-Path $projectDir "venv\Scripts\pip.exe"
 
 if (-not (Test-Path $venvPython)) {
-    Write-Host "  ERROR: Venv Python not found!" -ForegroundColor Red
+    Write-Host "  ERROR: Venv nahi bana!" -ForegroundColor Red
     Read-Host "Press Enter to exit"
     exit 1
 }
-Write-Host "  Activated: $venvPython" -ForegroundColor Green
+Write-Host "  Venv ready." -ForegroundColor Green
 
-# ---- STEP 4: Install dependencies ----
+# ---- STEP 3: Install packages ----
 Write-Host ""
-Write-Host "[4/8] Dependencies install kar rahe hain (5-10 min lag sakta hai)..." -ForegroundColor Yellow
+Write-Host "[3/7] Packages install ho rahe hain (5-10 min)..." -ForegroundColor Yellow
+Write-Host "  Internet connected hona chahiye..." -ForegroundColor Gray
 
-& $venvPython -m pip install --upgrade pip 2>&1 | Out-Null
-& $venvPython -m pip install -r requirements.txt 2>&1 | ForEach-Object {
-    if ($_ -match "Successfully installed") {
-        Write-Host "  $_" -ForegroundColor Green
-    }
+& $venvPython -m pip install --upgrade pip --quiet 2>&1 | Out-Null
+
+$packages = @(
+    "customtkinter==5.2.1",
+    "faster-whisper==1.0.3",
+    "sounddevice==0.4.7",
+    "numpy==1.26.4",
+    "keyboard==0.13.5",
+    "pyperclip==1.8.2",
+    "pystray==0.19.5",
+    "Pillow==10.4.0",
+    "pyinstaller==6.6.0"
+)
+
+foreach ($pkg in $packages) {
+    Write-Host "  Installing: $pkg" -ForegroundColor Gray
+    & $venvPython -m pip install $pkg --quiet 2>&1 | Out-Null
 }
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "  Retrying with individual packages..." -ForegroundColor Yellow
-    $packages = @(
-        "customtkinter==5.2.1",
-        "faster-whisper==1.0.3",
-        "sounddevice==0.4.7",
-        "numpy==1.26.4",
-        "keyboard==0.13.5",
-        "pyperclip==1.8.2",
-        "pystray==0.19.5",
-        "Pillow==10.4.0",
-        "PyInstaller==6.6.0"
-    )
-    foreach ($pkg in $packages) {
-        Write-Host "  Installing $pkg..." -ForegroundColor Gray
-        & $venvPython -m pip install $pkg 2>&1 | Out-Null
-    }
-}
+Write-Host "  Sab packages install ho gaye!" -ForegroundColor Green
 
-Write-Host "  Dependencies installed!" -ForegroundColor Green
-
-# ---- STEP 5: Generate icon ----
+# ---- STEP 4: Generate Icon ----
 Write-Host ""
-Write-Host "[5/8] App icon generate kar rahe hain..." -ForegroundColor Yellow
+Write-Host "[4/7] Icon generate kar rahe hain..." -ForegroundColor Yellow
 
 & $venvPython generate_icon.py 2>&1 | Out-Null
 
 if (Test-Path "assets\icon.ico") {
-    Write-Host "  Icon generated: assets\icon.ico" -ForegroundColor Green
+    Write-Host "  Icon ready: assets\icon.ico" -ForegroundColor Green
 } else {
-    Write-Host "  Icon generation skipped (non-critical)" -ForegroundColor Yellow
+    Write-Host "  Icon skip (problem nahi hai)" -ForegroundColor Yellow
 }
 
-# ---- STEP 6: Build with PyInstaller ----
+# ---- STEP 5: Clean old build ----
 Write-Host ""
-Write-Host "[6/8] PyInstaller se app build kar rahe hain (2-5 min)..." -ForegroundColor Yellow
+Write-Host "[5/7] Purani build files clean kar rahe hain..." -ForegroundColor Yellow
+
+if (Test-Path "dist") { Remove-Item -Recurse -Force dist }
+if (Test-Path "build") { Remove-Item -Recurse -Force build }
+Write-Host "  Clean done." -ForegroundColor Green
+
+# ---- STEP 6: Build EXE ----
+Write-Host ""
+Write-Host "[6/7] App build ho rahi hai (2-5 min wait karo)..." -ForegroundColor Yellow
+Write-Host "  PyInstaller kaam kar raha hai..." -ForegroundColor Gray
 
 $pyinstaller = Join-Path $projectDir "venv\Scripts\pyinstaller.exe"
 
-& $pyinstaller voicesetu.spec --noconfirm --clean 2>&1 | ForEach-Object {
-    if ($_ -match "Building") {
-        Write-Host "  $_" -ForegroundColor Gray
+# Build WITHOUT icon to avoid Windows Defender issue
+& $pyinstaller --noconfirm --clean --name "VoiceSetu" --windowed --noupx `
+    --add-data "locales;locales" `
+    --add-data "assets;assets" `
+    --hidden-import "faster_whisper" `
+    --hidden-import "ctranslate2" `
+    --hidden-import "huggingface_hub" `
+    --hidden-import "tokenizers" `
+    --hidden-import "sounddevice" `
+    --hidden-import "numpy" `
+    --hidden-import "keyboard" `
+    --hidden-import "pyperclip" `
+    --hidden-import "pystray" `
+    --hidden-import "PIL" `
+    --hidden-import "PIL.Image" `
+    --hidden-import "PIL.ImageDraw" `
+    --hidden-import "customtkinter" `
+    --hidden-import "pkg_resources.extern" `
+    --exclude-module "matplotlib" `
+    --exclude-module "scipy" `
+    --exclude-module "pandas" `
+    --exclude-module "pytest" `
+    main.py 2>&1 | ForEach-Object {
+        if ($_ -match "error|Error|ERROR|failed|Failed") {
+            Write-Host "  $_" -ForegroundColor Red
+        }
     }
-}
 
 $exePath = Join-Path $projectDir "dist\VoiceSetu\VoiceSetu.exe"
 if (Test-Path $exePath) {
+    Write-Host ""
+    Write-Host "  ============================================" -ForegroundColor Green
     Write-Host "  BUILD SUCCESSFUL!" -ForegroundColor Green
-    Write-Host "  App: $exePath" -ForegroundColor Green
+    Write-Host "  ============================================" -ForegroundColor Green
+    Write-Host "  EXE: $exePath" -ForegroundColor White
 } else {
-    Write-Host "  ERROR: Build failed! Check errors above." -ForegroundColor Red
-    Write-Host "  Log check karo: build\VoiceSetu\warn-VoiceSetu.txt" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  BUILD FAIL!" -ForegroundColor Red
+    Write-Host "  Neeche error check karo." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  Manual try karo:" -ForegroundColor Yellow
+    Write-Host "  venv\Scripts\pyinstaller.exe --noconfirm --name VoiceSetu --windowed --noupx --add-data `"locales;locales`" --add-data `"assets;assets`" main.py" -ForegroundColor Yellow
     Read-Host "Press Enter to exit"
     exit 1
 }
 
-# ---- STEP 7: Build installer (if Inno Setup available) ----
-Write-Host ""
-Write-Host "[7/8] Installer build kar rahe hain..." -ForegroundColor Yellow
-
-$isccPaths = @(
-    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-    "C:\Program Files\Inno Setup 6\ISCC.exe",
-    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-)
-
-$iscc = $null
-foreach ($path in $isccPaths) {
-    if (Test-Path $path) {
-        $iscc = $path
-        break
-    }
-}
-
-$installerPath = $null
-if ($iscc) {
-    if (-not (Test-Path "build\installer")) {
-        New-Item -ItemType Directory -Path "build\installer" -Force | Out-Null
-    }
-    & $iscc installer.iss 2>&1 | Out-Null
-    $installerPath = Join-Path $projectDir "build\installer\VoiceSetu_Setup_1.0.0.exe"
-    if (Test-Path $installerPath) {
-        Write-Host "  Installer created: $installerPath" -ForegroundColor Green
-    } else {
-        Write-Host "  Installer build failed (non-critical)" -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "  Inno Setup nahi mila. Installer skip." -ForegroundColor Yellow
-    Write-Host "  Download: https://jrsoftware.org/isdl.php" -ForegroundColor Gray
-    Write-Host "  Install karke script dobara run karo for installer." -ForegroundColor Gray
-}
-
-# ---- STEP 8: Done! ----
+# ---- STEP 7: Done ----
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "  BUILD COMPLETE!" -ForegroundColor Green
+Write-Host "  DONE! App ready hai!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "  App EXE: dist\VoiceSetu\VoiceSetu.exe" -ForegroundColor White
-
-if ($installerPath -and (Test-Path $installerPath)) {
-    Write-Host "  Installer: build\installer\VoiceSetu_Setup_1.0.0.exe" -ForegroundColor White
-}
-
+Write-Host "  App kahan hai:" -ForegroundColor Cyan
+Write-Host "  $exePath" -ForegroundColor White
 Write-Host ""
-Write-Host "  App chalane ke liye:" -ForegroundColor Cyan
-Write-Host "    dist\VoiceSetu\VoiceSetu.exe double-click karo" -ForegroundColor White
+Write-Host "  Double-click karke chalao!" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  NOTE: Pehli baar speech model download hoga (~74MB)" -ForegroundColor Yellow
-Write-Host "        Uske baad 100% offline kaam karega!" -ForegroundColor Yellow
+Write-Host "  FIRST RUN: Speech model download hoga (~74MB)" -ForegroundColor Yellow
+Write-Host "  Uske baad OFFLINE kaam karega!" -ForegroundColor Yellow
 Write-Host ""
 
-# Open the dist folder
-Start-Process explorer.exe "dist\VoiceSetu"
+# Open folder
+Start-Process explorer.exe (Join-Path $projectDir "dist\VoiceSetu")
 
 Read-Host "Press Enter to exit"
