@@ -14,7 +14,7 @@ Write-Host ""
 # Set execution policy for this session
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 Set-Location $projectDir
@@ -97,8 +97,8 @@ Write-Host "  Activated: $venvPython" -ForegroundColor Green
 Write-Host ""
 Write-Host "[4/8] Dependencies install kar rahe hain (5-10 min lag sakta hai)..." -ForegroundColor Yellow
 
-& $venvPip install --upgrade pip 2>&1 | Out-Null
-& $venvPip install -r requirements.txt 2>&1 | ForEach-Object {
+& $venvPython -m pip install --upgrade pip 2>&1 | Out-Null
+& $venvPython -m pip install -r requirements.txt 2>&1 | ForEach-Object {
     if ($_ -match "Successfully installed") {
         Write-Host "  $_" -ForegroundColor Green
     }
@@ -119,7 +119,7 @@ if ($LASTEXITCODE -ne 0) {
     )
     foreach ($pkg in $packages) {
         Write-Host "  Installing $pkg..." -ForegroundColor Gray
-        & $venvPip install $pkg 2>&1 | Out-Null
+        & $venvPython -m pip install $pkg 2>&1 | Out-Null
     }
 }
 
