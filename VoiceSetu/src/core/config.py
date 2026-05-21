@@ -19,13 +19,13 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "speech_language": "en",
     "auto_detect_language": False,
     "theme": "dark",
-    "model_size": "base",
+    "model_size": "tiny",
     "model_path": "",
     "microphone_index": -1,
     "hotkey_ptt": "ctrl+shift+space",
     "hotkey_toggle": "ctrl+shift+d",
     "insertion_mode": "auto",
-    "silence_threshold": 1.5,
+    "silence_threshold": 1.0,
     "sample_rate": 16000,
     "show_mini_window": True,
     "start_minimized": False,
@@ -34,9 +34,9 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "max_history_items": 200,
     "preserve_clipboard": True,
     "compute_type": "int8",
-    "beam_size": 5,
+    "beam_size": 1,
     "vad_enabled": True,
-    "vad_threshold": 0.5,
+    "vad_threshold": 0.3,
 }
 
 

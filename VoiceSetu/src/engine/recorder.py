@@ -28,10 +28,10 @@ class AudioRecorder:
     def __init__(
         self,
         sample_rate: int = SAMPLE_RATE,
-        silence_threshold: float = 1.5,
+        silence_threshold: float = 1.0,
         device_index: Optional[int] = None,
         vad_enabled: bool = True,
-        vad_threshold: float = 0.5,
+        vad_threshold: float = 0.3,
     ):
         self._sample_rate = sample_rate
         self._silence_threshold = silence_threshold
@@ -44,7 +44,7 @@ class AudioRecorder:
         self._lock = threading.Lock()
         self._silence_start: Optional[float] = None
         self._has_speech = False
-        self._energy_threshold = 0.01
+        self._energy_threshold = 0.008
         self._on_silence_detected: Optional[Callable] = None
 
     @property

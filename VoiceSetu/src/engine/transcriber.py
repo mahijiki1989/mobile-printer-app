@@ -1,10 +1,12 @@
 """
 Transcription engine for VoiceSetu.
 Uses faster-whisper for offline speech-to-text.
+SPEED OPTIMIZED: tiny model + beam_size=1 + greedy decoding for instant results.
 Supports Hindi and English with optional auto-detection.
 """
 
 import logging
+import os
 import threading
 import time
 from pathlib import Path
@@ -26,15 +28,16 @@ MODEL_SIZES = ["tiny", "base", "small", "medium", "large-v2"]
 class TranscriptionEngine:
     """
     Manages the faster-whisper model for offline speech recognition.
-    Handles model loading, transcription, and language detection.
+    SPEED PRIORITY: Uses greedy decoding (beam=1), max CPU threads,
+    and tiny/base model for near-instant transcription.
     """
 
     def __init__(
         self,
-        model_size: str = "base",
+        model_size: str = "tiny",
         compute_type: str = "int8",
         model_path: str = "",
-        beam_size: int = 5,
+        beam_size: int = 1,
     ):
         self._model = None
         self._model_size = model_size
@@ -55,7 +58,7 @@ class TranscriptionEngine:
 
     def load_model(self, on_progress: Optional[Callable[[str], None]] = None) -> bool:
         """
-        Load the whisper model. This may take time on first run as it downloads.
+        Load the whisper model. Uses max CPU threads for speed.
         Returns True if successful, False otherwise.
         """
         with self._lock:
@@ -73,12 +76,15 @@ class TranscriptionEngine:
 
             model_path = self._custom_model_path if self._custom_model_path else self._model_size
 
+            # Use ALL available CPU threads for maximum speed
+            cpu_count = os.cpu_count() or 4
+
             self._model = WhisperModel(
                 model_path,
                 device="cpu",
                 compute_type=self._compute_type,
-                cpu_threads=4,
-                num_workers=1,
+                cpu_threads=cpu_count,
+                num_workers=2,
             )
 
             self._is_loaded = True
@@ -87,7 +93,7 @@ class TranscriptionEngine:
             if on_progress:
                 on_progress("Model loaded successfully")
 
-            logger.info(f"Model '{model_path}' loaded successfully")
+            logger.info(f"Model '{model_path}' loaded with {cpu_count} threads")
             return True
 
         except Exception as e:
@@ -142,7 +148,10 @@ class TranscriptionEngine:
         auto_detect: bool = False,
     ) -> Tuple[str, str, float]:
         """
-        Transcribe audio data to text.
+        Transcribe audio data to text. SPEED OPTIMIZED.
+
+        Uses beam_size=1 (greedy decoding) for fastest possible results.
+        VAD filter removes silence for faster processing.
 
         Args:
             audio_data: numpy array of audio samples (float32, 16kHz mono)
@@ -168,13 +177,18 @@ class TranscriptionEngine:
             segments, info = self._model.transcribe(
                 audio_float,
                 language=lang_param,
-                beam_size=self._beam_size,
+                beam_size=1,
+                best_of=1,
+                temperature=0.0,
+                condition_on_previous_text=False,
                 vad_filter=True,
                 vad_parameters=dict(
-                    min_silence_duration_ms=500,
-                    speech_pad_ms=200,
+                    min_silence_duration_ms=300,
+                    speech_pad_ms=100,
+                    threshold=0.3,
                 ),
                 without_timestamps=True,
+                word_timestamps=False,
             )
 
             text_parts = []
