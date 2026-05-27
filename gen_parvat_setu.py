@@ -42,27 +42,38 @@ def PNI(t): story.append(Paragraph(t, BNI))
 def B(t): story.append(Paragraph(f"&bull; {t}", Bullet))
 def CAP(t): story.append(Paragraph(t, Caption))
 def MONO(t):
-    # Render entire ASCII diagram as ONE flowable to prevent line-by-line breaks
-    t_safe = t.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
-    pf = Preformatted(t_safe, Mono)
-    from reportlab.platypus import KeepTogether
-    story.append(KeepTogether([pf]))
-    story.append(Spacer(1, 8))
+    lines = t.split('\n')
+    safe_lines = []
+    for line in lines:
+        line = line.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
+        line = line.replace(' ', '&nbsp;')
+        safe_lines.append(line)
+    html_content = '<br/>'.join(safe_lines)
+    diag_style = ParagraphStyle('diagram', parent=styles['Normal'],
+        fontName='Courier', fontSize=6.5, leading=8, alignment=TA_LEFT,
+        spaceAfter=10, spaceBefore=4, leftIndent=0)
+    story.append(Paragraph(html_content, diag_style))
+    story.append(Spacer(1, 6))
 def SP(h=8): story.append(Spacer(1, h))
 def BR(): story.append(PageBreak())
 def TBL(headers, rows, col_widths=None, hcolor='#1a4d2e'):
-    data = [headers] + rows
+    cell_style = ParagraphStyle('cell', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=8.5, leading=11, alignment=TA_LEFT,
+        leftIndent=0, rightIndent=0, spaceAfter=0, spaceBefore=0)
+    header_style = ParagraphStyle('hdr', parent=cell_style,
+        fontName='Helvetica-Bold', textColor=colors.white, alignment=TA_CENTER, fontSize=8.5)
+    wrapped_headers = [Paragraph(str(h), header_style) for h in headers]
+    wrapped_rows = []
+    for row in rows:
+        wrapped_rows.append([Paragraph(str(c), cell_style) for c in row])
+    data = [wrapped_headers] + wrapped_rows
     if col_widths is None:
-        pw = A4[0] - 1.7*inch
+        pw = A4[0] - 1.4*inch
         col_widths = [pw/len(headers)] * len(headers)
     t = Table(data, colWidths=col_widths, repeatRows=1, splitByRow=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor(hcolor)),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 9),
-        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,1), (-1,-1), 9),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('ALIGN', (0,0), (-1,0), 'CENTER'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#1a4d2e')),
@@ -1198,8 +1209,8 @@ TBL(['Attribute', 'Typical Project', 'PARVAT-SETU', 'Funder Implication'], [
 
 # ===================== BUILD =====================
 doc = SimpleDocTemplate(OUTPUT_PDF, pagesize=A4,
-    rightMargin=0.85*inch, leftMargin=0.85*inch,
-    topMargin=0.75*inch, bottomMargin=0.75*inch,
+    rightMargin=0.7*inch, leftMargin=0.7*inch,
+    topMargin=0.7*inch, bottomMargin=0.7*inch,
     title='PARVAT-SETU Pilot Project Proposal',
     author='Dr. Nidhi Rawat (PI), Raj Amritam (Co-PI)')
 doc.build(story)
