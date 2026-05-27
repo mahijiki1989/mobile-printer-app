@@ -16,21 +16,21 @@ TitleStyle = ParagraphStyle('CT', parent=styles['Title'], fontName='Helvetica-Bo
     fontSize=20, alignment=TA_CENTER, textColor=colors.HexColor('#1a4d2e'),
     spaceAfter=18, leading=24)
 H1S = ParagraphStyle('H1', parent=styles['Heading1'], fontName='Helvetica-Bold',
-    fontSize=15, textColor=colors.HexColor('#1a4d2e'), spaceAfter=10, spaceBefore=14, leading=18)
+    fontSize=15, textColor=colors.HexColor('#1a4d2e'), spaceAfter=12, spaceBefore=18, leading=20, keepWithNext=1)
 H2S = ParagraphStyle('H2', parent=styles['Heading2'], fontName='Helvetica-Bold',
-    fontSize=12, textColor=colors.HexColor('#2d5f3f'), spaceAfter=8, spaceBefore=10, leading=15)
+    fontSize=12, textColor=colors.HexColor('#2d5f3f'), spaceAfter=8, spaceBefore=14, leading=16, keepWithNext=1)
 H3S = ParagraphStyle('H3', parent=styles['Heading3'], fontName='Helvetica-BoldOblique',
-    fontSize=11, textColor=colors.HexColor('#3d6f4f'), spaceAfter=6, spaceBefore=8, leading=14)
+    fontSize=11, textColor=colors.HexColor('#3d6f4f'), spaceAfter=6, spaceBefore=12, leading=15, keepWithNext=1)
 Body = ParagraphStyle('Body', parent=styles['Normal'], fontName='Times-Roman',
-    fontSize=11, alignment=TA_JUSTIFY, spaceAfter=8, leading=15, firstLineIndent=18)
+    fontSize=11, alignment=TA_JUSTIFY, spaceAfter=10, leading=16, firstLineIndent=18)
 BNI = ParagraphStyle('BNI', parent=Body, firstLineIndent=0)
 Bullet = ParagraphStyle('Bullet', parent=Body, leftIndent=24, firstLineIndent=-12,
     spaceAfter=4, leading=14)
 Caption = ParagraphStyle('Cap', parent=styles['Normal'], fontName='Helvetica-BoldOblique',
     fontSize=10, alignment=TA_CENTER, textColor=colors.HexColor('#1a4d2e'),
-    spaceAfter=6, spaceBefore=10)
+    spaceAfter=6, spaceBefore=14, keepWithNext=1)
 Mono = ParagraphStyle('Mono', parent=styles['Normal'], fontName='Courier',
-    fontSize=8, leading=10, alignment=TA_LEFT, leftIndent=0)
+    fontSize=7, leading=8.5, alignment=TA_LEFT, leftIndent=0, spaceAfter=0, spaceBefore=0)
 
 story = []
 
@@ -42,9 +42,12 @@ def PNI(t): story.append(Paragraph(t, BNI))
 def B(t): story.append(Paragraph(f"&bull; {t}", Bullet))
 def CAP(t): story.append(Paragraph(t, Caption))
 def MONO(t):
-    for line in t.split('\n'):
-        line = line.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
-        story.append(Preformatted(line, Mono))
+    # Render entire ASCII diagram as ONE flowable to prevent line-by-line breaks
+    t_safe = t.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
+    pf = Preformatted(t_safe, Mono)
+    from reportlab.platypus import KeepTogether
+    story.append(KeepTogether([pf]))
+    story.append(Spacer(1, 8))
 def SP(h=8): story.append(Spacer(1, h))
 def BR(): story.append(PageBreak())
 def TBL(headers, rows, col_widths=None, hcolor='#1a4d2e'):
@@ -52,7 +55,7 @@ def TBL(headers, rows, col_widths=None, hcolor='#1a4d2e'):
     if col_widths is None:
         pw = A4[0] - 1.7*inch
         col_widths = [pw/len(headers)] * len(headers)
-    t = Table(data, colWidths=col_widths, repeatRows=1)
+    t = Table(data, colWidths=col_widths, repeatRows=1, splitByRow=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor(hcolor)),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
