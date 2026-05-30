@@ -230,6 +230,351 @@ def build_cover_page(story, styles):
     story.append(PageBreak())
 
 
+def build_objectives_section(story, styles):
+    """Section: Objectives of the Study - Clear, specific, measurable objectives"""
+    story.append(Paragraph("OBJECTIVES OF THE STUDY", styles['Heading1Green']))
+    story.append(Paragraph(
+        "Clear, Specific, and Measurable Research and Project Objectives",
+        styles['SectionIntro']
+    ))
+    story.append(spacer(8))
+
+    story.append(Paragraph(
+        "The PARVAT-SETU project is guided by five clearly defined objectives that integrate "
+        "technological innovation, financial inclusion, supply chain optimization, institutional "
+        "sustainability, and rigorous impact evaluation. Each objective is designed to be specific, "
+        "measurable, achievable, relevant, and time-bound (SMART).",
+        styles['BodyText']
+    ))
+    story.append(spacer(10))
+
+    story.append(Paragraph("Objective 1: Digital Platform Development and Market Access", styles['Heading2Green']))
+    story.append(Paragraph(
+        "To develop and deploy an AI-GIS integrated digital platform that enables 5,000 smallholder "
+        "producers in the Garhwal Himalayan Region to access premium markets through digital aggregation, "
+        "achieving 35-50% increase in net farm-gate income within 24 months of platform engagement.",
+        styles['BodyText']
+    ))
+    story.append(spacer(8))
+
+    story.append(Paragraph("Objective 2: Financial Inclusion Architecture", styles['Heading2Green']))
+    story.append(Paragraph(
+        "To design and implement an AI-powered financial inclusion architecture - including alternative-data "
+        "credit scoring, bundled insurance products, and embedded digital payments - achieving 100% financial "
+        "inclusion (bank account + insurance + working capital credit access) for all participating households.",
+        styles['BodyText']
+    ))
+    story.append(spacer(8))
+
+    story.append(Paragraph("Objective 3: Supply Chain Infrastructure Optimization", styles['Heading2Green']))
+    story.append(Paragraph(
+        "To establish a GIS-optimized supply chain infrastructure comprising three cluster collection centres "
+        "and cold-chain logistics network, reducing post-harvest losses by 25-35% and per-unit logistics costs "
+        "by 30-45% through demand forecasting and route optimization.",
+        styles['BodyText']
+    ))
+    story.append(spacer(8))
+
+    story.append(Paragraph("Objective 4: Institutional Sustainability Validation", styles['Heading2Green']))
+    story.append(Paragraph(
+        "To validate the cooperative social enterprise governance model (Producer Company structure) as a "
+        "financially sustainable institutional framework, demonstrating trajectory to operational break-even "
+        "within 36 months post-pilot through diversified revenue streams (commissions, processing margins, "
+        "buyer subscriptions, data services).",
+        styles['BodyText']
+    ))
+    story.append(spacer(8))
+
+    story.append(Paragraph("Objective 5: Impact Evidence Generation and Replicability", styles['Heading2Green']))
+    story.append(Paragraph(
+        "To generate rigorous impact evidence through quasi-experimental evaluation (difference-in-differences "
+        "with matched control villages), producing 3-4 SCIE-indexed publications and a replication playbook "
+        "deployable across 25+ Himalayan districts at 50-65% reduced unit cost.",
+        styles['BodyText']
+    ))
+    story.append(spacer(12))
+
+    # Summary Table of Objectives
+    story.append(Paragraph("Objectives Summary Matrix", styles['Heading2Green']))
+    obj_data = [
+        [Paragraph("<b>Objective</b>", styles['TableHeader']),
+         Paragraph("<b>Key Target</b>", styles['TableHeader']),
+         Paragraph("<b>Timeline</b>", styles['TableHeader']),
+         Paragraph("<b>Measurement</b>", styles['TableHeader'])],
+        [Paragraph("1. Digital Platform &amp; Market Access", styles['TableCellBold']),
+         Paragraph("5,000 producers; 35-50% income increase", styles['TableCell']),
+         Paragraph("24 months", styles['TableCellCenter']),
+         Paragraph("Farm-gate price comparison; platform analytics", styles['TableCell'])],
+        [Paragraph("2. Financial Inclusion", styles['TableCellBold']),
+         Paragraph("100% financial inclusion for participants", styles['TableCell']),
+         Paragraph("24 months", styles['TableCellCenter']),
+         Paragraph("Bank account, insurance, credit access rates", styles['TableCell'])],
+        [Paragraph("3. Supply Chain Optimization", styles['TableCellBold']),
+         Paragraph("25-35% loss reduction; 30-45% cost reduction", styles['TableCell']),
+         Paragraph("18 months", styles['TableCellCenter']),
+         Paragraph("Post-harvest loss audit; logistics cost per unit", styles['TableCell'])],
+        [Paragraph("4. Institutional Sustainability", styles['TableCellBold']),
+         Paragraph("Break-even trajectory within 36 months", styles['TableCell']),
+         Paragraph("36 months", styles['TableCellCenter']),
+         Paragraph("Revenue vs. operating costs; governance audit", styles['TableCell'])],
+        [Paragraph("5. Impact Evidence", styles['TableCellBold']),
+         Paragraph("3-4 SCIE publications; replication playbook", styles['TableCell']),
+         Paragraph("30 months", styles['TableCellCenter']),
+         Paragraph("Publication count; DiD impact estimates", styles['TableCell'])],
+    ]
+    story.append(make_table(obj_data, col_widths=[1.6*inch, 2.0*inch, 1.1*inch, 1.9*inch]))
+    story.append(PageBreak())
+
+
+def build_methodology_section(story, styles):
+    """Section: Detailed Methodology - Proper academic research/project methodology"""
+    story.append(Paragraph("DETAILED METHODOLOGY", styles['Heading1Green']))
+    story.append(Paragraph(
+        "Rigorous Mixed-Methods Research Design with Technology Development Framework",
+        styles['SectionIntro']
+    ))
+    story.append(spacer(8))
+
+    # 1. Research Design
+    story.append(Paragraph("1. Research Design", styles['Heading2Green']))
+    story.append(Paragraph(
+        "The study employs a mixed-methods quasi-experimental design combining quantitative impact "
+        "evaluation with qualitative process documentation:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    research_design = [
+        "<b>Quantitative Component:</b> Pre-post difference-in-differences (DiD) estimation with propensity-score-matched control villages to establish causal attribution of platform impact on income, financial inclusion, and food security outcomes.",
+        "<b>Qualitative Component:</b> Process tracing methodology to document implementation pathways, beneficiary case studies using narrative inquiry, and stakeholder Focus Group Discussions (FGDs) to capture contextual mechanisms of change.",
+        "<b>Integration Strategy:</b> Sequential explanatory design where quantitative findings inform qualitative inquiry, enabling both measurement and explanation of impact.",
+    ]
+    for r in research_design:
+        story.append(Paragraph(r, styles['BulletText'], bulletText='\u2022'))
+    story.append(spacer(10))
+
+    # 2. Study Area & Population
+    story.append(Paragraph("2. Study Area and Population", styles['Heading2Green']))
+    story.append(Paragraph(
+        "The study is located in the Garhwal division of Uttarakhand, specifically targeting three districts "
+        "that represent the diversity of mountain agricultural systems in the Indian Himalayan Region:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    area_data = [
+        [Paragraph("<b>Parameter</b>", styles['TableHeader']),
+         Paragraph("<b>Details</b>", styles['TableHeader'])],
+        [Paragraph("Study Districts", styles['TableCellBold']),
+         Paragraph("Tehri Garhwal, Pauri Garhwal, Chamoli", styles['TableCell'])],
+        [Paragraph("Treatment Group", styles['TableCellBold']),
+         Paragraph("5,000 smallholder producers enrolled on PARVAT-SETU platform", styles['TableCell'])],
+        [Paragraph("Control Group", styles['TableCellBold']),
+         Paragraph("1,000 matched households in non-intervention villages", styles['TableCell'])],
+        [Paragraph("Sampling Strategy", styles['TableCellBold']),
+         Paragraph("Stratified random sampling within SHG clusters; stratification by altitude zone (800-1200m, 1200-1800m, 1800-2400m), crop system, and access to road", styles['TableCell'])],
+        [Paragraph("Altitude Range", styles['TableCellBold']),
+         Paragraph("800m to 2,400m above sea level", styles['TableCell'])],
+        [Paragraph("Agro-climatic Zones", styles['TableCellBold']),
+         Paragraph("Subtropical, warm-temperate, and cool-temperate zones", styles['TableCell'])],
+    ]
+    story.append(make_table(area_data, col_widths=[1.8*inch, 4.8*inch]))
+    story.append(spacer(10))
+
+    # 3. Data Collection Methods
+    story.append(Paragraph("3. Data Collection Methods", styles['Heading2Green']))
+    story.append(Paragraph(
+        "A comprehensive multi-modal data collection strategy ensures triangulation of findings:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    dc_data = [
+        [Paragraph("<b>Method</b>", styles['TableHeader']),
+         Paragraph("<b>Timing</b>", styles['TableHeader']),
+         Paragraph("<b>Sample</b>", styles['TableHeader']),
+         Paragraph("<b>Key Variables</b>", styles['TableHeader'])],
+        [Paragraph("Baseline Household Survey", styles['TableCellBold']),
+         Paragraph("Month 1-4", styles['TableCellCenter']),
+         Paragraph("n = 2,000", styles['TableCellCenter']),
+         Paragraph("Income, assets, financial inclusion, food security, crop production, market access", styles['TableCell'])],
+        [Paragraph("Platform Analytics", styles['TableCellBold']),
+         Paragraph("Continuous", styles['TableCellCenter']),
+         Paragraph("All users", styles['TableCellCenter']),
+         Paragraph("Digital transaction data, app usage, pricing data, credit performance", styles['TableCell'])],
+        [Paragraph("Midline Assessment", styles['TableCellBold']),
+         Paragraph("Month 15", styles['TableCellCenter']),
+         Paragraph("n = 1,000", styles['TableCellCenter']),
+         Paragraph("Progress indicators, early outcome signals, course corrections", styles['TableCell'])],
+        [Paragraph("Endline Survey", styles['TableCellBold']),
+         Paragraph("Month 27-30", styles['TableCellCenter']),
+         Paragraph("n = 2,000", styles['TableCellCenter']),
+         Paragraph("Same instrument as baseline for DiD estimation", styles['TableCell'])],
+        [Paragraph("Beneficiary Case Studies", styles['TableCellBold']),
+         Paragraph("Month 12-28", styles['TableCellCenter']),
+         Paragraph("n = 20", styles['TableCellCenter']),
+         Paragraph("In-depth narrative of change pathways, barriers, and enablers", styles['TableCell'])],
+        [Paragraph("Focus Group Discussions", styles['TableCellBold']),
+         Paragraph("Month 10, 20, 28", styles['TableCellCenter']),
+         Paragraph("8 FGDs", styles['TableCellCenter']),
+         Paragraph("Community perceptions, collective action dynamics, gender norms", styles['TableCell'])],
+        [Paragraph("Key Informant Interviews", styles['TableCellBold']),
+         Paragraph("Month 8-28", styles['TableCellCenter']),
+         Paragraph("15 KIIs", styles['TableCellCenter']),
+         Paragraph("Institutional perspectives, policy context, market dynamics", styles['TableCell'])],
+    ]
+    story.append(make_table(dc_data, col_widths=[1.5*inch, 1.0*inch, 0.8*inch, 3.3*inch]))
+    story.append(spacer(10))
+
+    # 4. Technology Development Methodology
+    story.append(Paragraph("4. Technology Development Methodology", styles['Heading2Green']))
+    story.append(Paragraph(
+        "The platform development follows an Agile methodology adapted for research context:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    tech_method = [
+        "<b>Agile Sprints (2-week cycles):</b> Iterative development of mobile application and backend infrastructure with continuous user feedback from field testing with farmer groups.",
+        "<b>AI/ML Model Development Pipeline:</b> Train on historical data &rarr; Validate with cross-validation &rarr; A/B test with live users &rarr; Deploy to production &rarr; Monitor performance drift &rarr; Retrain quarterly.",
+        "<b>GIS Layer Development:</b> Data acquisition (satellite + field survey) &rarr; Preprocessing and georectification &rarr; Spatial analysis and modeling &rarr; Visualization and decision-support interface &rarr; Validation with ground truth.",
+        "<b>User-Centered Design:</b> Participatory design workshops with farmer groups, iterative prototyping, usability testing in low-literacy contexts, voice-first interface design.",
+    ]
+    for t in tech_method:
+        story.append(Paragraph(t, styles['BulletText'], bulletText='\u2022'))
+    story.append(spacer(10))
+
+    # 5. AI/ML Methodology
+    story.append(Paragraph("5. AI/ML Methodology", styles['Heading2Green']))
+    story.append(Paragraph(
+        "Five core AI/ML models are developed, each with specific algorithmic approaches and performance targets:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    ai_method_data = [
+        [Paragraph("<b>Model</b>", styles['TableHeader']),
+         Paragraph("<b>Algorithm</b>", styles['TableHeader']),
+         Paragraph("<b>Training Data</b>", styles['TableHeader']),
+         Paragraph("<b>Performance Target</b>", styles['TableHeader'])],
+        [Paragraph("Demand Forecasting", styles['TableCellBold']),
+         Paragraph("LSTM + Prophet ensemble", styles['TableCell']),
+         Paragraph("5-year mandi price data + seasonal patterns + weather", styles['TableCell']),
+         Paragraph("MAPE &lt; 15%", styles['TableCell'])],
+        [Paragraph("Price Prediction", styles['TableCellBold']),
+         Paragraph("XGBoost gradient boosting", styles['TableCell']),
+         Paragraph("Historical prices, supply data, transport costs, festival calendar", styles['TableCell']),
+         Paragraph("R-squared &gt; 0.75", styles['TableCell'])],
+        [Paragraph("Credit Scoring", styles['TableCellBold']),
+         Paragraph("Random Forest (200+ features)", styles['TableCell']),
+         Paragraph("Transaction history, satellite imagery, social network, mobile usage", styles['TableCell']),
+         Paragraph("AUC &gt; 0.78", styles['TableCell'])],
+        [Paragraph("Quality Grading", styles['TableCellBold']),
+         Paragraph("MobileNetV3 CNN (on-device)", styles['TableCell']),
+         Paragraph("10,000+ labeled produce images across quality grades", styles['TableCell']),
+         Paragraph("Accuracy &gt; 88%", styles['TableCell'])],
+        [Paragraph("Logistics Optimization", styles['TableCellBold']),
+         Paragraph("OR-Tools + Genetic Algorithm", styles['TableCell']),
+         Paragraph("Road network, terrain DEM, vehicle capacity, time windows", styles['TableCell']),
+         Paragraph("30-45% cost reduction", styles['TableCell'])],
+    ]
+    story.append(make_table(ai_method_data, col_widths=[1.3*inch, 1.6*inch, 2.1*inch, 1.6*inch]))
+    story.append(spacer(10))
+
+    # 6. GIS Methodology
+    story.append(Paragraph("6. GIS Methodology", styles['Heading2Green']))
+    story.append(Paragraph(
+        "Geospatial analysis forms the backbone of location-intelligence for the platform:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    gis_method = [
+        "<b>Producer Mapping with Land Records Linkage:</b> GPS-tagged producer registration integrated with state land records (Bhulekh/DevBhoomi portal) for verified ownership and plot-level production data.",
+        "<b>Agro-ecological Zonation:</b> Multi-criteria classification using ICAR-NBSSLUP soil data + SRTM DEM (30m resolution) + IMD climate grids to generate crop suitability maps at village level.",
+        "<b>Climate-Risk Overlay:</b> Composite vulnerability layer combining flood zone mapping (HEC-RAS), landslide susceptibility (logistic regression on slope, lithology, land cover, rainfall), and drought probability.",
+        "<b>Logistics Network Optimization:</b> Vehicle Routing Problem with Time Windows (VRPTW) solver using actual road network (OpenStreetMap + state PWD data), terrain gradient, seasonal accessibility, and demand nodes.",
+        "<b>Market-Shed Analysis:</b> Thiessen polygon-based catchment delineation for buyer targeting, incorporating travel-time isochrones rather than Euclidean distance for mountain terrain accuracy.",
+    ]
+    for g in gis_method:
+        story.append(Paragraph(g, styles['BulletText'], bulletText='\u2022'))
+    story.append(spacer(10))
+
+    # 7. Impact Evaluation Methodology
+    story.append(Paragraph("7. Impact Evaluation Methodology", styles['Heading2Green']))
+    story.append(Paragraph(
+        "The impact evaluation employs a rigorous quasi-experimental design:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    story.append(Paragraph("<b>Primary Estimator: Difference-in-Differences (DiD)</b>", styles['BodyBold']))
+    story.append(Paragraph(
+        "The causal impact is estimated using the DiD framework:",
+        styles['BodyText']
+    ))
+    story.append(Paragraph(
+        "Beta = (Y_treatment_post - Y_treatment_pre) - (Y_control_post - Y_control_pre)",
+        styles['Callout']
+    ))
+    story.append(spacer(4))
+    impact_method = [
+        "<b>Propensity Score Matching:</b> Control villages matched on baseline characteristics (income, landholding, altitude, road access, market distance, SHG density) using nearest-neighbor matching with caliper = 0.2 SD.",
+        "<b>Clustering:</b> Standard errors clustered at village level (unit of treatment assignment) to account for intra-cluster correlation.",
+        "<b>Robustness Checks:</b> Placebo tests (pre-treatment trends), leave-one-district-out jackknife, heterogeneous effects analysis (by gender, caste, landholding size, altitude zone).",
+        "<b>Qualitative Validation:</b> Most Significant Change (MSC) technique to capture transformative impacts not measurable through surveys, with participatory ranking by community members.",
+    ]
+    for i in impact_method:
+        story.append(Paragraph(i, styles['BulletText'], bulletText='\u2022'))
+    story.append(spacer(10))
+
+    # 8. Ethical Considerations
+    story.append(Paragraph("8. Ethical Considerations", styles['Heading2Green']))
+    story.append(Paragraph(
+        "The research adheres to the highest ethical standards for human subjects research:",
+        styles['BodyText']
+    ))
+    story.append(spacer(4))
+    ethics = [
+        "<b>Institutional Ethics Committee Approval:</b> Full protocol review and approval from DBS Global University Ethics Committee prior to any data collection.",
+        "<b>Informed Consent:</b> Bilingual consent forms (Hindi/English) with verbal explanation for low-literacy participants; separate consent for digital data collection and platform analytics.",
+        "<b>Data Anonymization:</b> All personally identifiable information removed before analysis; compliance with Digital Personal Data Protection (DPDP) Act 2023.",
+        "<b>Gender Sensitivity Protocols:</b> Female enumerators for women respondents; FGD timings aligned with women's schedules; childcare provision during data collection events.",
+        "<b>Community Feedback:</b> Findings shared with participating communities before publication; right to withdraw at any stage without penalty.",
+    ]
+    for e in ethics:
+        story.append(Paragraph(e, styles['BulletText'], bulletText='\u2022'))
+    story.append(spacer(10))
+
+    # Methodology Timeline
+    story.append(Paragraph("Methodology Timeline", styles['Heading2Green']))
+    timeline_data = [
+        [Paragraph("<b>Phase</b>", styles['TableHeader']),
+         Paragraph("<b>Months</b>", styles['TableHeader']),
+         Paragraph("<b>Activities</b>", styles['TableHeader']),
+         Paragraph("<b>Outputs</b>", styles['TableHeader'])],
+        [Paragraph("Preparatory", styles['TableCellBold']),
+         Paragraph("M1-4", styles['TableCellCenter']),
+         Paragraph("Ethics approval, baseline survey design, sampling frame, enumerator training, GIS data acquisition", styles['TableCell']),
+         Paragraph("Approved protocol, sampling frame, baseline instrument", styles['TableCell'])],
+        [Paragraph("Baseline Data Collection", styles['TableCellBold']),
+         Paragraph("M3-6", styles['TableCellCenter']),
+         Paragraph("Household surveys (n=2000), producer mapping, land records linkage, agro-ecological zonation", styles['TableCell']),
+         Paragraph("Baseline dataset, GIS layers, producer database", styles['TableCell'])],
+        [Paragraph("Technology Development", styles['TableCellBold']),
+         Paragraph("M2-12", styles['TableCellCenter']),
+         Paragraph("Platform development (Agile sprints), AI model training and validation, GIS platform deployment", styles['TableCell']),
+         Paragraph("MVP platform, trained AI models, GIS dashboard", styles['TableCell'])],
+        [Paragraph("Intervention Rollout", styles['TableCellBold']),
+         Paragraph("M6-24", styles['TableCellCenter']),
+         Paragraph("Farmer onboarding, market linkage activation, credit facilitation, continuous monitoring", styles['TableCell']),
+         Paragraph("Platform analytics, transaction data, credit portfolio", styles['TableCell'])],
+        [Paragraph("Midline Assessment", styles['TableCellBold']),
+         Paragraph("M15-16", styles['TableCellCenter']),
+         Paragraph("Midline survey (n=1000), FGDs, process documentation, model performance review", styles['TableCell']),
+         Paragraph("Midline report, course corrections, model retraining", styles['TableCell'])],
+        [Paragraph("Endline and Analysis", styles['TableCellBold']),
+         Paragraph("M27-30", styles['TableCellCenter']),
+         Paragraph("Endline survey (n=2000), case studies, KIIs, DiD estimation, qualitative analysis", styles['TableCell']),
+         Paragraph("Impact estimates, publications, replication playbook", styles['TableCell'])],
+    ]
+    story.append(make_table(timeline_data, col_widths=[1.2*inch, 0.8*inch, 2.5*inch, 2.1*inch]))
+    story.append(PageBreak())
+
+
 def build_problem_page(story, styles):
     """Section 2: The Problem"""
     story.append(Paragraph("THE PROBLEM", styles['Heading1Green']))
@@ -2851,6 +3196,12 @@ def build_document():
     # Build all sections
     print("Building Cover Page...")
     build_cover_page(story, styles)
+    
+    print("Building Objectives of the Study...")
+    build_objectives_section(story, styles)
+    
+    print("Building Detailed Methodology...")
+    build_methodology_section(story, styles)
     
     print("Building Problem Section...")
     build_problem_page(story, styles)
